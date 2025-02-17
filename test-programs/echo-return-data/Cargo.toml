@@ -1,0 +1,22 @@
+[package]
+name = "echo-return-data"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+test-sbf = []
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+jiminy-entrypoint = { workspace = true }
+jiminy-return-data = { workspace = true }
+
+[dev-dependencies]
+jiminy-test-utils = { workspace = true }
+mollusk-svm = { workspace = true }
+proptest = { workspace = true }
+solana-logger = { workspace = true }
+solana-sdk = { workspace = true }

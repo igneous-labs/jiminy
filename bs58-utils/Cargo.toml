@@ -1,0 +1,14 @@
+[package]
+name = "jiminy-bs58-utils"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+std = ["bs58/std"]
+
+[dependencies]
+bs58 = { workspace = true, default-features = false }
+
+[dev-dependencies]
+proptest = { workspace = true }

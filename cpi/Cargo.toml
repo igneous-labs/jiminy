@@ -1,0 +1,10 @@
+[package]
+name = "jiminy-cpi"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+jiminy-account = { workspace = true }
+jiminy-pda = { workspace = true }
+jiminy-program-error = { workspace = true }
+jiminy-syscall = { workspace = true }

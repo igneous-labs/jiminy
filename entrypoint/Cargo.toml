@@ -1,0 +1,14 @@
+[package]
+name = "jiminy-entrypoint"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["allocator", "panic"]
+allocator = []
+panic = ["dep:jiminy-syscall"]
+
+[dependencies]
+jiminy-account = { workspace = true }
+jiminy-syscall = { workspace = true, optional = true }
+

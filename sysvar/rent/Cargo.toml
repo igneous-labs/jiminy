@@ -1,0 +1,14 @@
+[package]
+name = "jiminy-sysvar-rent"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+const-crypto = { workspace = true }
+jiminy-program-error = { workspace = true }
+jiminy-syscall = { workspace = true }
+
+[dev-dependencies]
+bincode = { workspace = true }
+proptest = { workspace = true }
+solana-rent = { workspace = true }

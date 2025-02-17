@@ -1,0 +1,7 @@
+[package]
+name = "jiminy-pda"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+jiminy-syscall = { workspace = true }

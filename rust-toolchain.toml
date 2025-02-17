@@ -1,0 +1,3 @@
+[toolchain]
+# output from `cargo-build-sbf --version`
+channel = "1.79.0"

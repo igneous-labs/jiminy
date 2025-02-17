@@ -1,0 +1,24 @@
+[package]
+name = "pda-assign"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+test-sbf = []
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+jiminy-entrypoint = { workspace = true }
+jiminy-cpi = { workspace = true }
+jiminy-pda = { workspace = true }
+jiminy-system-prog-interface = { workspace = true }
+
+[dev-dependencies]
+jiminy-test-utils = { workspace = true }
+mollusk-svm = { workspace = true }
+proptest = { workspace = true }
+solana-logger = { workspace = true }
+solana-sdk = { workspace = true }

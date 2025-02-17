@@ -1,0 +1,47 @@
+[workspace]
+resolver = "2"
+members = [
+    "account",
+    "bs58-utils",
+    "cpi",
+    "entrypoint",
+    "pda",
+    "prog-interface/*",
+    "program-error",
+    "return-data",
+    "syscall",
+    "sysvar/*",
+    "test-programs/*",
+    "test-utils",
+]
+
+[workspace.dependencies]
+# runtime deps
+# // set all to default-features = false and turn features
+# // on in individual crates as required to reduce deps 
+bs58 = { version = "^0.5", default-features = false }
+const-crypto = { version = "^0.3", default-features = false }
+
+# dev deps
+bincode = "^1"
+proptest = "^1"
+
+## solana dev deps
+# // grouping these tgt to deal with solana's dependency hell more conveniently
+mollusk-svm = "^0.0.15"
+solana-logger = "^2"
+solana-rent = "^2"
+solana-sdk = "^2"
+
+# workspace members
+jiminy-account = { path = "./account" }
+jiminy-bs58-utils = { path = "./bs58-utils" }
+jiminy-cpi = { path = "./cpi" }
+jiminy-entrypoint = { path = "./entrypoint" }
+jiminy-pda = { path = "./pda" }
+jiminy-program-error = { path = "./program-error" }
+jiminy-return-data = { path = "./return-data" }
+jiminy-syscall = { path = "./syscall" }
+jiminy-system-prog-interface = { path = "./prog-interface/system" }
+jiminy-sysvar-rent = { path = "./sysvar/rent" }
+jiminy-test-utils = { path = "./test-utils" }
