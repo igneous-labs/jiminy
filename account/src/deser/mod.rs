@@ -1,4 +1,4 @@
-use core::{cell::UnsafeCell, marker::PhantomData};
+use core::{cell::UnsafeCell, iter::FusedIterator, marker::PhantomData};
 
 use crate::{Account, BPF_ALIGN_OF_U128, MAX_PERMITTED_DATA_INCREASE, NON_DUP_MARKER};
 
@@ -119,3 +119,5 @@ impl<'account> Iterator for AccountsDeser<'account> {
 }
 
 impl ExactSizeIterator for AccountsDeser<'_> {}
+
+impl FusedIterator for AccountsDeser<'_> {}

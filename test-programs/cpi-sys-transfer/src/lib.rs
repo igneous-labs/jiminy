@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)]
+
 use jiminy_cpi::invoke_signed;
 use jiminy_entrypoint::{account::AccountHandle, program_error::ProgramError};
 use jiminy_system_prog_interface::{transfer_ix, TransferAccounts};

@@ -1,3 +1,5 @@
+use core::iter::FusedIterator;
+
 use crate::{AccountHandle, Accounts, DeserAccount, MAX_TX_ACCOUNTS};
 
 use super::AccountsDeser;
@@ -78,6 +80,8 @@ impl<'account, const MAX_ACCOUNTS: usize> Iterator for SavingAccountsDeser<'acco
 }
 
 impl<const MAX_ACCOUNTS: usize> ExactSizeIterator for SavingAccountsDeser<'_, MAX_ACCOUNTS> {}
+
+impl<const MAX_ACCOUNTS: usize> FusedIterator for SavingAccountsDeser<'_, MAX_ACCOUNTS> {}
 
 const _ASSERT_FITS_ON_STACK: () = {
     if core::mem::size_of::<SavingAccountsDeser>() > 3072 {

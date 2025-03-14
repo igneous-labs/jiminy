@@ -1,4 +1,5 @@
 #![cfg_attr(not(test), no_std)]
+#![allow(unexpected_cfgs)]
 
 //! TODO: turbofish on all invoke_signed_*() calls is currently a bit annoying because
 //! const generics cant be inferred yet.

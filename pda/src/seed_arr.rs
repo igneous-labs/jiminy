@@ -97,7 +97,7 @@ impl<'seed, const MAX_SEEDS: usize> Deref for PdaSeedArr<'seed, MAX_SEEDS> {
     }
 }
 
-impl<'seed, const MAX_SEEDS: usize> DerefMut for PdaSeedArr<'seed, MAX_SEEDS> {
+impl<const MAX_SEEDS: usize> DerefMut for PdaSeedArr<'_, MAX_SEEDS> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_slice_mut()

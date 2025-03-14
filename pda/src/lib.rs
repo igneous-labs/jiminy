@@ -1,4 +1,5 @@
 #![cfg_attr(not(test), no_std)]
+#![allow(unexpected_cfgs)]
 
 mod seed;
 mod seed_arr;

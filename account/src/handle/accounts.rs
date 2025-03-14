@@ -1,4 +1,4 @@
-use core::{marker::PhantomData, mem::MaybeUninit};
+use core::{iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
 
 use jiminy_program_error::ProgramError;
 
@@ -253,3 +253,5 @@ impl DoubleEndedIterator for AccountsHandleIter<'_, '_> {
 }
 
 impl ExactSizeIterator for AccountsHandleIter<'_, '_> {}
+
+impl FusedIterator for AccountsHandleIter<'_, '_> {}

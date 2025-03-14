@@ -1,4 +1,5 @@
 #![cfg_attr(not(test), no_std)]
+#![allow(unexpected_cfgs)]
 
 // Re-exports
 pub mod program_error {

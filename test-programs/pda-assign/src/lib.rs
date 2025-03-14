@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)]
+
 use jiminy_cpi::{invoke_signed, program_error::ProgramError};
 use jiminy_entrypoint::account::AccountHandle;
 use jiminy_pda::{
