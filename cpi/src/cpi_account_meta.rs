@@ -4,9 +4,29 @@ use jiminy_account::Account;
 
 /// Account permissions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AccountPerms {
-    pub is_writable: bool,
-    pub is_signer: bool,
+pub enum AccountPerms {
+    WritableSigner,
+    ReadonlySigner,
+    Writable,
+    Readonly,
+}
+
+impl AccountPerms {
+    #[inline]
+    pub const fn is_writable(&self) -> bool {
+        match self {
+            Self::Readonly | Self::ReadonlySigner => false,
+            Self::Writable | Self::WritableSigner => true,
+        }
+    }
+
+    #[inline]
+    pub const fn is_signer(&self) -> bool {
+        match self {
+            Self::Readonly | Self::Writable => false,
+            Self::ReadonlySigner | Self::WritableSigner => true,
+        }
+    }
 }
 
 /// An `AccountMeta` for CPI invocations.
@@ -27,17 +47,11 @@ pub struct CpiAccountMeta<'account> {
 
 impl<'account> CpiAccountMeta<'account> {
     #[inline]
-    pub fn new(
-        acc: &Account<'account>,
-        AccountPerms {
-            is_writable,
-            is_signer,
-        }: AccountPerms,
-    ) -> Self {
+    pub fn new(acc: &Account<'account>, role: AccountPerms) -> Self {
         Self {
             pubkey: acc.key(),
-            is_writable,
-            is_signer,
+            is_writable: role.is_writable(),
+            is_signer: role.is_signer(),
             _account: PhantomData,
         }
     }

@@ -25,13 +25,7 @@ pub fn assign_ix<'account>(
         Instruction::new_unchecked(
             system_prog,
             &ix_data,
-            &[(
-                assign,
-                AccountPerms {
-                    is_signer: true,
-                    is_writable: true,
-                },
-            )],
+            &[(assign, AccountPerms::WritableSigner)],
         )
     }
 }
