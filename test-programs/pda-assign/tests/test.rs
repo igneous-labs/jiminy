@@ -7,11 +7,13 @@ use proptest::prelude::*;
 use solana_sdk::{
     account::Account,
     instruction::{AccountMeta, Instruction},
+    pubkey,
     pubkey::Pubkey,
     system_program,
 };
 
 const PROG_NAME: &str = "pda_assign";
+const PROG_ID: Pubkey = pubkey!("xtjwVYz95ZdAGoGzwP5HFm1mrNMWpB3L4aDMRwbhd6d");
 
 #[test]
 fn pda_assign_basic() {
@@ -39,10 +41,9 @@ fn pda_assign_basic() {
         data
     };
 
-    let prog_id = Pubkey::new_unique();
-    let (pda, _bump) = Pubkey::find_program_address(SEEDS, &prog_id);
+    let (pda, _bump) = Pubkey::find_program_address(SEEDS, &PROG_ID);
 
-    let svm = Mollusk::new(&prog_id, PROG_NAME);
+    let svm = Mollusk::new(&PROG_ID, PROG_NAME);
 
     let InstructionResult {
         compute_units_consumed,
@@ -51,7 +52,7 @@ fn pda_assign_basic() {
         ..
     } = svm.process_instruction(
         &Instruction::new_with_bytes(
-            prog_id,
+            PROG_ID,
             &SEED_IX_DATA,
             vec![
                 AccountMeta {
@@ -73,9 +74,11 @@ fn pda_assign_basic() {
     );
 
     raw_result.unwrap();
+
+    // 4565
     eprintln!("{compute_units_consumed} CUs");
 
-    assert_eq!(resulting_accounts[1].1.owner, prog_id);
+    assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
 }
 
 #[test]
@@ -83,7 +86,6 @@ fn pda_assign_max_seeds() {
     // (MAX_SEEDS - 1) seeds
     const SEED_IX_DATA: [u8; 30] = [1u8; 30];
 
-    let prog_id = Pubkey::new_unique();
     let (pda, _bump) = Pubkey::find_program_address(
         &[
             &[1],
@@ -102,10 +104,10 @@ fn pda_assign_max_seeds() {
             &[1],
             &[1],
         ],
-        &prog_id,
+        &PROG_ID,
     );
 
-    let svm = Mollusk::new(&prog_id, PROG_NAME);
+    let svm = Mollusk::new(&PROG_ID, PROG_NAME);
 
     let InstructionResult {
         compute_units_consumed,
@@ -114,7 +116,7 @@ fn pda_assign_max_seeds() {
         ..
     } = svm.process_instruction(
         &Instruction::new_with_bytes(
-            prog_id,
+            PROG_ID,
             &SEED_IX_DATA,
             vec![
                 AccountMeta {
@@ -136,9 +138,11 @@ fn pda_assign_max_seeds() {
     );
 
     raw_result.unwrap();
+
+    // 7851
     eprintln!("{compute_units_consumed} CUs");
 
-    assert_eq!(resulting_accounts[1].1.owner, prog_id);
+    assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
 }
 
 struct SeedsIxData(Vec<u8>);

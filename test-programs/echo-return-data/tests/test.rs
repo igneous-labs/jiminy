@@ -11,18 +11,18 @@ use solana_sdk::{
     account::Account,
     bpf_loader_upgradeable,
     instruction::{AccountMeta, Instruction},
+    pubkey,
     pubkey::Pubkey,
     system_program,
 };
 
 const PROG_NAME: &str = "echo_return_data";
+const PROG_ID: Pubkey = pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
 
 #[test]
 fn entrypoint_basic() {
-    let prog_id = Pubkey::new_unique();
-
     let a1_is_exec = false;
-    let a1_pk = Pubkey::new_unique();
+    let a1_pk = pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
     let a1 = Account {
         lamports: 100_000_000,
         data: vec![0, 1, 2],
@@ -37,7 +37,7 @@ fn entrypoint_basic() {
     };
 
     let a2_is_exec = true;
-    let a2_pk = Pubkey::new_unique();
+    let a2_pk = pubkey!("9diwgHx6xrDjrvXUVx8B4drJMzv9ddh9fBSx59EWjFPU");
     let a2 = Account {
         lamports: 100_000_000,
         data: Vec::new(),
@@ -54,7 +54,7 @@ fn entrypoint_basic() {
     let metas = vec![a1_meta.clone(), a2_meta.clone()];
     let n_accounts = metas.len();
 
-    let svm = Mollusk::new(&prog_id, PROG_NAME);
+    let svm = Mollusk::new(&PROG_ID, PROG_NAME);
 
     let InstructionResult {
         compute_units_consumed,
@@ -62,11 +62,13 @@ fn entrypoint_basic() {
         return_data,
         ..
     } = svm.process_instruction(
-        &Instruction::new_with_bytes(prog_id, ix_data, metas),
+        &Instruction::new_with_bytes(PROG_ID, ix_data, metas),
         &[(a1_pk, a1), (a2_pk, a2)],
     );
 
     raw_result.unwrap();
+
+    // 590
     eprintln!("{compute_units_consumed} CUs");
 
     for (i, (meta, is_exec)) in [(a1_meta, a1_is_exec), (a2_meta, a2_is_exec)]
@@ -92,16 +94,15 @@ fn entrypoint_basic() {
     let ret_data_prog_id_start = ix_data_start + ix_data.len();
     assert_eq!(
         &return_data[ret_data_prog_id_start..ret_data_prog_id_start + 32],
-        prog_id.to_bytes()
+        PROG_ID.to_bytes()
     );
 }
 
 #[test]
 fn entrypoint_accounts_data_empty() {
-    let prog_id = Pubkey::new_unique();
-    let svm = Mollusk::new(&prog_id, PROG_NAME);
+    let svm = Mollusk::new(&PROG_ID, PROG_NAME);
 
-    let ix = Instruction::new_with_bytes(prog_id, &[], vec![]);
+    let ix = Instruction::new_with_bytes(PROG_ID, &[], vec![]);
     let InstructionResult {
         raw_result,
         return_data,
@@ -109,7 +110,7 @@ fn entrypoint_accounts_data_empty() {
     } = svm.process_instruction(&ix, &[]);
     raw_result.unwrap();
 
-    assert_eq!(&return_data[..32], prog_id.to_bytes());
+    assert_eq!(&return_data[..32], PROG_ID.to_bytes());
 }
 
 proptest! {
@@ -118,8 +119,9 @@ proptest! {
         acc_raw in proptest::collection::vec(any::<[u8; 35]>(), 0..11),
         acc_data in proptest::collection::vec(proptest::collection::vec(any::<u8>(), 0..2048), 0..11),
         ix_data in proptest::collection::vec(any::<u8>(), 0..1232),
+        prog_id: [u8; 32],
     ) {
-        let prog_id = Pubkey::new_unique();
+        let prog_id = Pubkey::new_from_array(prog_id);
         // worst case 64 bytes for sig + 33 bytes for pk and index
         let max_data_len = min(1232 - 97 * (1 + acc_raw.len()), ix_data.len());
         let ix_data = &ix_data[..max_data_len];

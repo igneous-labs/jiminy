@@ -6,17 +6,19 @@ use proptest::prelude::*;
 use solana_sdk::{
     account::Account,
     instruction::{AccountMeta, Instruction},
+    pubkey,
     pubkey::Pubkey,
     system_program,
 };
 
 const PROG_NAME: &str = "cpi_sys_transfer";
+const PROG_ID: Pubkey = pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
 
 #[test]
 fn transfer_basic() {
     const TRF_AMT: u64 = 1_000_000_000;
 
-    let from_pk = Pubkey::new_unique();
+    let from_pk = pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
     let from = Account {
         lamports: TRF_AMT,
         data: vec![],
@@ -24,7 +26,7 @@ fn transfer_basic() {
         executable: false,
         rent_epoch: u64::MAX,
     };
-    let to_pk = Pubkey::new_unique();
+    let to_pk = pubkey!("9diwgHx6xrDjrvXUVx8B4drJMzv9ddh9fBSx59EWjFPU");
     let to = Account {
         lamports: 0,
         data: vec![],
@@ -33,9 +35,7 @@ fn transfer_basic() {
         rent_epoch: u64::MAX,
     };
 
-    let prog_id = Pubkey::new_unique();
-
-    let svm = Mollusk::new(&prog_id, PROG_NAME);
+    let svm = Mollusk::new(&PROG_ID, PROG_NAME);
 
     let InstructionResult {
         compute_units_consumed,
@@ -44,7 +44,7 @@ fn transfer_basic() {
         ..
     } = svm.process_instruction(
         &Instruction::new_with_bytes(
-            prog_id,
+            PROG_ID,
             &TRF_AMT.to_le_bytes(),
             vec![
                 AccountMeta {
@@ -72,6 +72,8 @@ fn transfer_basic() {
     );
 
     raw_result.unwrap();
+
+    // 1509
     eprintln!("{compute_units_consumed} CUs");
 
     assert_eq!(resulting_accounts[1].1.lamports, 0);
