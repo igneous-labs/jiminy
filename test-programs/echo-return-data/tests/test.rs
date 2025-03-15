@@ -1,3 +1,5 @@
+//! .so file size: 9816
+
 #![cfg(feature = "test-sbf")]
 
 use std::{cmp::min, collections::HashMap};
@@ -19,6 +21,7 @@ use solana_sdk::{
 const PROG_NAME: &str = "echo_return_data";
 const PROG_ID: Pubkey = pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
 
+/// CUs: 590
 #[test]
 fn entrypoint_basic() {
     let a1_is_exec = false;
@@ -68,7 +71,6 @@ fn entrypoint_basic() {
 
     raw_result.unwrap();
 
-    // 590
     eprintln!("{compute_units_consumed} CUs");
 
     for (i, (meta, is_exec)) in [(a1_meta, a1_is_exec), (a2_meta, a2_is_exec)]

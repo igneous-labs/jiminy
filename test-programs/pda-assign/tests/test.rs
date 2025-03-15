@@ -1,3 +1,5 @@
+//! .so file size: 11984
+
 #![cfg(feature = "test-sbf")]
 
 use jiminy_pda::{MAX_SEEDS, MAX_SEED_LEN};
@@ -15,6 +17,7 @@ use solana_sdk::{
 const PROG_NAME: &str = "pda_assign";
 const PROG_ID: Pubkey = pubkey!("xtjwVYz95ZdAGoGzwP5HFm1mrNMWpB3L4aDMRwbhd6d");
 
+/// CUs: 4565
 #[test]
 fn pda_assign_basic() {
     // 2 seeds, one of len 0, other of len 32
@@ -74,13 +77,12 @@ fn pda_assign_basic() {
     );
 
     raw_result.unwrap();
-
-    // 4565
     eprintln!("{compute_units_consumed} CUs");
 
     assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
 }
 
+/// CUs: 7851
 #[test]
 fn pda_assign_max_seeds() {
     // (MAX_SEEDS - 1) seeds
@@ -138,8 +140,6 @@ fn pda_assign_max_seeds() {
     );
 
     raw_result.unwrap();
-
-    // 7851
     eprintln!("{compute_units_consumed} CUs");
 
     assert_eq!(resulting_accounts[1].1.owner, PROG_ID);

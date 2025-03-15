@@ -1,3 +1,5 @@
+//! .so file size: 4664
+
 #![cfg(feature = "test-sbf")]
 
 use jiminy_test_utils::silence_mollusk_prog_logs;
@@ -14,6 +16,7 @@ use solana_sdk::{
 const PROG_NAME: &str = "cpi_sys_transfer";
 const PROG_ID: Pubkey = pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
 
+/// CUs: 1509
 #[test]
 fn transfer_basic() {
     const TRF_AMT: u64 = 1_000_000_000;
@@ -72,8 +75,6 @@ fn transfer_basic() {
     );
 
     raw_result.unwrap();
-
-    // 1509
     eprintln!("{compute_units_consumed} CUs");
 
     assert_eq!(resulting_accounts[1].1.lamports, 0);
