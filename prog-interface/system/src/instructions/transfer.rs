@@ -25,8 +25,20 @@ pub fn transfer_ix<'account>(
             system_prog,
             &ix_data,
             &[
-                (from, AccountPerms::WritableSigner),
-                (to, AccountPerms::Writable),
+                (
+                    from,
+                    AccountPerms {
+                        is_signer: true,
+                        is_writable: true,
+                    },
+                ),
+                (
+                    to,
+                    AccountPerms {
+                        is_signer: false,
+                        is_writable: true,
+                    },
+                ),
             ],
         )
     }

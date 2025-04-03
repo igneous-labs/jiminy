@@ -38,8 +38,20 @@ pub fn create_account_ix<'account>(
             system_prog,
             &ix_data,
             &[
-                (funding, AccountPerms::WritableSigner),
-                (new, AccountPerms::WritableSigner),
+                (
+                    funding,
+                    AccountPerms {
+                        is_signer: true,
+                        is_writable: true,
+                    },
+                ),
+                (
+                    new,
+                    AccountPerms {
+                        is_signer: true,
+                        is_writable: true,
+                    },
+                ),
             ],
         )
     }
