@@ -77,6 +77,34 @@ impl<'account, const MAX_ACCOUNTS: usize> Iterator for SavingAccountsDeser<'acco
         let rem = self.itrs_left();
         (rem, Some(rem))
     }
+
+    #[inline]
+    fn fold<B, F>(mut self, init: B, mut f: F) -> B
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
+    {
+        let itrs_left = self.itrs_left();
+        self.deser.take(itrs_left).fold(init, |accum, deser_next| {
+            let acc = match deser_next {
+                DeserAccount::NonDup(a) => a,
+                DeserAccount::Dup(idx) => unsafe {
+                    // bitwise copy of the &UnsafeCell<[u8]>
+                    //
+                    // slice::get_unchecked safety: runtime should always return indices
+                    // that we've already deserialized
+                    self.accounts.accounts.get_unchecked(idx).assume_init_read()
+                },
+            };
+            let handle = unsafe {
+                // safety: self.itrs_left() bounds checked above
+                self.accounts.push_unchecked(acc);
+                // safety: new account was just pushed
+                self.accounts.handle_unchecked(self.accounts.len_u8() - 1)
+            };
+            f(accum, handle)
+        })
+    }
 }
 
 impl<const MAX_ACCOUNTS: usize> ExactSizeIterator for SavingAccountsDeser<'_, MAX_ACCOUNTS> {}

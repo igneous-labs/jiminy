@@ -80,18 +80,16 @@ impl<'account, const MAX_ACCOUNTS: usize> Deref for AccountHandles<'account, MAX
     }
 }
 
-/// Discards AccountHandle if iterator yields more items than `N`
+/// Discards AccountHandle if iterator yields more items than `MAX_ACCOUNTS`
 impl<'account, const MAX_ACCOUNTS: usize> FromIterator<AccountHandle<'account>>
     for AccountHandles<'account, MAX_ACCOUNTS>
 {
     #[inline]
     fn from_iter<T: IntoIterator<Item = AccountHandle<'account>>>(iter: T) -> Self {
-        let mut res = Self::new();
-        let iter = iter.into_iter();
-        for handle in iter {
+        iter.into_iter().fold(Self::new(), |mut res, handle| {
             let _maybe_discarded: Result<(), AccountHandle<'account>> = res.push(handle);
-        }
-        res
+            res
+        })
     }
 }
 
