@@ -1,160 +1,92 @@
-use core::{iter::FusedIterator, marker::PhantomData, ptr::null_mut};
+use core::{cmp::min, marker::PhantomData, mem::size_of, ptr::NonNull};
 
-use crate::{Account, Accounts, MAX_TX_ACCOUNTS, NON_DUP_MARKER};
+use crate::{
+    Account, AccountRaw, Accounts, BPF_ALIGN_OF_U128, MAX_PERMITTED_DATA_INCREASE, NON_DUP_MARKER,
+};
 
-#[derive(Debug)]
-enum DeserAccount<'account> {
-    NonDup(Account<'account>),
-    Dup(usize),
-}
+/// # Returns
+/// `(pointer to start of instruction data, saved deserialized accounts)`.
+///
+/// If the number of accounts exceeds the capacity of Accounts, the accounts that come
+/// later are discarded.
+///
+/// # Safety
+/// - `input` must point to start of runtime serialized buffer
+#[inline]
+pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
+    input: *mut u8,
+) -> (*mut u8, Accounts<'account, MAX_ACCOUNTS>) {
+    let accounts_len_buf = &*input.cast();
+    let accounts_len = u64::from_le_bytes(*accounts_len_buf) as usize;
+    let mut input = input.add(8);
 
-#[derive(Debug)]
-enum AccountsDeserItem<'account> {
-    Account(DeserAccount<'account>),
-    End(*mut u8),
-}
+    let mut res = Accounts::new();
 
-/// Account deserializer that discards deserialized accounts
-#[derive(Debug)]
-struct AccountsDeser<'account> {
-    curr: *mut u8,
-    remaining_accounts: usize,
-    _accounts_lifetime: PhantomData<Account<'account>>,
-}
+    let saved_accounts_len = min(accounts_len, MAX_ACCOUNTS);
 
-impl AccountsDeser<'_> {
-    /// # Safety
-    /// - ptr must point to start of an account in the
-    ///   accounts segment of the memory block serialized by the runtime
-    #[inline]
-    pub const unsafe fn new(curr: *mut u8, remaining_accounts: usize) -> Self {
-        Self {
-            curr,
-            remaining_accounts,
-            _accounts_lifetime: PhantomData,
-        }
-    }
-
-    #[inline]
-    pub const fn itrs_rem(&self) -> usize {
-        self.remaining_accounts + 1
-    }
-}
-
-impl<'account> Iterator for AccountsDeser<'account> {
-    type Item = AccountsDeserItem<'account>;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.curr.is_null() {
-            return None;
-        }
-
-        if self.remaining_accounts == 0 {
-            self.curr = null_mut();
-            return Some(AccountsDeserItem::End(self.curr));
-        }
-
-        let (new_curr, acc) = if unsafe { *self.curr } == NON_DUP_MARKER {
-            let (new_curr, acc) = unsafe { Account::non_dup_from_ptr(self.curr) };
-            (new_curr, DeserAccount::NonDup(acc))
-        } else {
-            let (new_curr, acc) = unsafe { Account::dup_from_ptr(self.curr) };
-            (new_curr, DeserAccount::Dup(acc))
+    for _ in 0..saved_accounts_len {
+        let (new_input, acc) = match input.read() {
+            NON_DUP_MARKER => Account::non_dup_from_ptr(input),
+            _dup => {
+                let (new_input, idx) = Account::dup_from_ptr(input);
+                // bitwise copy of pointer
+                //
+                // slice::get_unchecked safety: runtime should always return indices
+                // that we've already deserialized, which is < len()
+                let acc = res.accounts.get_unchecked(idx).assume_init_read();
+                (new_input, acc)
+            }
         };
-
-        self.curr = new_curr;
-        self.remaining_accounts -= 1;
-
-        Some(AccountsDeserItem::Account(acc))
+        // push_unchecked safety: saved_accounts_len bounds check above
+        res.push_unchecked(acc);
+        input = new_input;
     }
 
-    #[inline]
-    fn fold<B, F>(self, init: B, mut f: F) -> B
-    where
-        Self: Sized,
-        F: FnMut(B, Self::Item) -> B,
-    {
-        let (curr, accum) =
-            (0..self.remaining_accounts).fold((self.curr, init), |(curr, accum), _| {
-                let (new_curr, acc) = if unsafe { *curr } == NON_DUP_MARKER {
-                    let (new_curr, acc) = unsafe { Account::non_dup_from_ptr(curr) };
-                    (new_curr, DeserAccount::NonDup(acc))
-                } else {
-                    let (new_curr, acc) = unsafe { Account::dup_from_ptr(curr) };
-                    (new_curr, DeserAccount::Dup(acc))
-                };
-                (new_curr, f(accum, AccountsDeserItem::Account(acc)))
-            });
-        f(accum, AccountsDeserItem::End(curr))
+    // some duplicate logic here but avoiding the bounds check branch
+    // results in halved CUs per account
+    for _ in saved_accounts_len..accounts_len {
+        input = match input.read() {
+            NON_DUP_MARKER => Account::non_dup_from_ptr(input).0,
+            _dup => Account::dup_from_ptr(input).0,
+        };
     }
 
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.itrs_rem(), Some(self.itrs_rem()))
-    }
+    (input, res)
 }
 
-impl ExactSizeIterator for AccountsDeser<'_> {}
-
-impl FusedIterator for AccountsDeser<'_> {}
-
-/// Populated fixed size [`Accounts`]
-/// that can then be output at the end of deserialization
-#[derive(Debug)]
-pub struct CompletedAccountsDeser<'account, const MAX_ACCOUNTS: usize = MAX_TX_ACCOUNTS> {
-    /// Populated from deserializing the whole accounts segment of the entrypoint.
+/// Runtime deserialization internals
+impl Account<'_> {
+    /// Returns (pointer to start of next account or instruction data if last account, deserialized account)
     ///
-    /// If number of accounts > `MAX_ACCOUNTS`, those accounts are simply discarded and lost
-    pub accounts: Accounts<'account, MAX_ACCOUNTS>,
-
-    /// Pointer to next segment of runtime-serialized entrypoint data (instruction data)
-    pub next: *mut u8,
-}
-
-impl<const MAX_ACCOUNTS: usize> CompletedAccountsDeser<'_, MAX_ACCOUNTS> {
     /// # Safety
-    /// - input must be pointer to start of runtime-serialized entrypoint data
+    /// - ptr must be pointing to the start of a non-duplicate account
+    ///   in the runtime serialized buffer
     #[inline]
-    pub unsafe fn deser(input: *mut u8) -> Self {
-        let total_accounts: &[u8; 8] = &*input.cast();
-        let total_accounts = u64::from_le_bytes(*total_accounts) as usize;
-        let input = input.add(8);
-        AccountsDeser::new(input, total_accounts).collect()
-    }
-}
+    pub(crate) unsafe fn non_dup_from_ptr(ptr: *mut u8) -> (*mut u8, Self) {
+        let inner: NonNull<AccountRaw> = NonNull::new_unchecked(ptr.cast());
+        let total_len = size_of::<AccountRaw>()
+            + inner.as_ref().data_len as usize
+            + MAX_PERMITTED_DATA_INCREASE;
 
-impl<'account, const MAX_ACCOUNTS: usize> FromIterator<AccountsDeserItem<'account>>
-    for CompletedAccountsDeser<'account, MAX_ACCOUNTS>
-{
+        let res = Self {
+            ptr: inner,
+            _phantom: PhantomData,
+        };
+        let ptr = ptr.add(total_len);
+        let ptr = ptr.add(ptr.align_offset(BPF_ALIGN_OF_U128));
+        let ptr = ptr.add(8);
+
+        (ptr, res)
+    }
+
+    /// Returns (pointer to start of next account or instruction data if last account, index of duplicated account)
+    ///
+    /// # Safety
+    /// - ptr must be pointing to the start of a duplicate account in the runtime serialized buffer
     #[inline]
-    fn from_iter<T: IntoIterator<Item = AccountsDeserItem<'account>>>(iter: T) -> Self {
-        iter.into_iter().fold(
-            CompletedAccountsDeser {
-                accounts: Accounts::new(),
-                next: null_mut(),
-            },
-            |mut this, next| {
-                match next {
-                    AccountsDeserItem::Account(acc) => {
-                        let acc = match acc {
-                            DeserAccount::NonDup(a) => a,
-                            DeserAccount::Dup(idx) => unsafe {
-                                // bitwise copy of the &UnsafeCell<[u8]>.
-                                //
-                                // slice::get_unchecked safety: runtime should always return indices
-                                // that we've already deserialized, which is < len()
-                                this.accounts.accounts.get_unchecked(idx).assume_init_read()
-                            },
-                        };
-                        let _maybe_discarded: Result<_, _> = this.accounts.push(acc);
-                    }
-                    AccountsDeserItem::End(ptr) => {
-                        this.next = ptr;
-                    }
-                };
-                this
-            },
-        )
+    unsafe fn dup_from_ptr(ptr: *mut u8) -> (*mut u8, usize) {
+        let idx: &[u8; 8] = &*ptr.cast();
+        let idx = u64::from_le_bytes(*idx) as usize;
+        (ptr.add(8), idx)
     }
 }

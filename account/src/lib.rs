@@ -281,43 +281,6 @@ impl Account<'_> {
     }
 }
 
-/// Runtime deserialization internals
-impl Account<'_> {
-    /// Returns (pointer to start of next account or instruction data if last account, deserialized account)
-    ///
-    /// # Safety
-    /// - ptr must be pointing to the start of a non-duplicate account
-    ///   in the runtime serialized buffer
-    #[inline]
-    pub(crate) unsafe fn non_dup_from_ptr(ptr: *mut u8) -> (*mut u8, Self) {
-        let inner: NonNull<AccountRaw> = NonNull::new_unchecked(ptr.cast());
-        let total_len = size_of::<AccountRaw>()
-            + inner.as_ref().data_len as usize
-            + MAX_PERMITTED_DATA_INCREASE;
-
-        let res = Self {
-            ptr: inner,
-            _phantom: PhantomData,
-        };
-        let ptr = ptr.add(total_len);
-        let ptr = ptr.add(ptr.align_offset(BPF_ALIGN_OF_U128));
-        let ptr = ptr.add(8);
-
-        (ptr, res)
-    }
-
-    /// Returns (pointer to start of next account or instruction data if last account, index of duplicated account)
-    ///
-    /// # Safety
-    /// - ptr must be pointing to the start of a duplicate account in the runtime serialized buffer
-    #[inline]
-    pub(crate) unsafe fn dup_from_ptr(ptr: *mut u8) -> (*mut u8, usize) {
-        let idx: &[u8; 8] = &*ptr.cast();
-        let idx = u64::from_le_bytes(*idx) as usize;
-        (ptr.add(8), idx)
-    }
-}
-
 /// Pointer equality
 impl PartialEq for Account<'_> {
     #[inline]
@@ -346,7 +309,7 @@ mod tests {
         let _first_immut_borrow = invalid_accounts.get(h);
         let _second_immut_borrow = invalid_accounts.get(h);
         let _third_mut_borrow = invalid_accounts.get_mut(h);
-        //let _fail_immut_borrow_while_mut_borrow = _second_immut_borrow.0; // uncomment to verify lifetime comptime error
+        //let _fail_immut_borrow_while_mut_borrow = _second_immut_borrow; // uncomment to verify lifetime comptime error
         let _fourth_mut_borrow = invalid_accounts.get_mut(h);
         let _fifth_immut_borrow = invalid_accounts.get(h);
     }

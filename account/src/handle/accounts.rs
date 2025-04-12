@@ -21,7 +21,7 @@ pub struct Accounts<'account, const MAX_ACCOUNTS: usize = MAX_TX_ACCOUNTS> {
 /// Construction
 impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     #[inline]
-    pub const fn new() -> Self {
+    pub(crate) const fn new() -> Self {
         #[allow(clippy::declare_interior_mutable_const)]
         const UNINIT: MaybeUninit<Account<'_>> = MaybeUninit::uninit();
 
@@ -34,23 +34,10 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     /// # Safety
     /// - [`self`] must not be full (self.len == N)
     #[inline]
-    pub unsafe fn push_unchecked(&mut self, account: Account<'account>) {
+    pub(crate) unsafe fn push_unchecked(&mut self, account: Account<'account>) {
         let curr_len = self.len();
         self.accounts.get_unchecked_mut(curr_len).write(account);
         self.len += 1;
-    }
-
-    /// Returns the account that failed to be pushed into the collection if [`self`] is full.
-    #[inline]
-    pub fn push(&mut self, account: Account<'account>) -> Result<(), Account<'account>> {
-        if self.is_full() {
-            Err(account)
-        } else {
-            unsafe {
-                self.push_unchecked(account);
-            }
-            Ok(())
-        }
     }
 }
 
@@ -69,11 +56,6 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     #[inline]
     pub const fn is_empty(&self) -> bool {
         self.len() == 0
-    }
-
-    #[inline]
-    pub const fn is_full(&self) -> bool {
-        self.len() >= MAX_ACCOUNTS
     }
 
     /// # Safety
@@ -184,13 +166,6 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
         close_acc.assign_direct([0u8; 32]); // TODO: use const pubkey for system program
         let balance = close_acc.lamports();
         self.transfer_direct(close, refund_rent_to, balance)
-    }
-}
-
-impl<const MAX_ACCOUNTS: usize> Default for Accounts<'_, MAX_ACCOUNTS> {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
     }
 }
 
