@@ -1,7 +1,7 @@
 #![allow(unexpected_cfgs)]
 
 use jiminy_cpi::invoke_signed;
-use jiminy_entrypoint::{account::AccountHandle, program_error::ProgramError};
+use jiminy_entrypoint::program_error::ProgramError;
 use jiminy_system_prog_interface::{transfer_ix, TransferAccounts};
 
 pub const MAX_ACCS: usize = 3;
@@ -14,7 +14,6 @@ jiminy_entrypoint::entrypoint!(process_ix, MAX_ACCS);
 
 fn process_ix(
     accounts: &mut Accounts,
-    account_handles: &[AccountHandle],
     data: &[u8],
     _prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
@@ -31,31 +30,25 @@ fn process_ix(
     // let [sys_prog, from, to] = core::array::from_fn(|i| account_handles[i]);
     //
     // to this cut program size in half from 9832 to 4656
-    let Some([sys_prog, from, to]) = account_handles.get(..3) else {
+    let mut accounts_itr = accounts.iter();
+    let [Some(sys_prog), Some(from), Some(to)] = core::array::from_fn(|_| accounts_itr.next())
+    else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
     let [from_lamports_bef, to_lamports_bef] =
-        [from, to].map(|handle| accounts.get(*handle).lamports());
+        [from, to].map(|handle| accounts.get(handle).lamports());
 
     invoke_signed::<MAX_ACCS, MAX_CPI_ACCS>(
         accounts,
-        transfer_ix(
-            *sys_prog,
-            TransferAccounts {
-                from: *from,
-                to: *to,
-            },
-            trf_amt,
-        )
-        .as_instr(),
+        transfer_ix(sys_prog, TransferAccounts { from, to }, trf_amt).as_instr(),
         &[],
     )?;
 
-    if accounts.get(*from).lamports() != from_lamports_bef - trf_amt {
+    if accounts.get(from).lamports() != from_lamports_bef - trf_amt {
         return Err(ProgramError::Custom(2));
     }
-    if accounts.get(*to).lamports() != to_lamports_bef + trf_amt {
+    if accounts.get(to).lamports() != to_lamports_bef + trf_amt {
         return Err(ProgramError::Custom(3));
     }
 
