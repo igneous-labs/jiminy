@@ -1,50 +1,11 @@
-use core::{cell::UnsafeCell, iter::FusedIterator, marker::PhantomData, ptr::null_mut};
+use core::{iter::FusedIterator, marker::PhantomData, ptr::null_mut};
 
-use crate::{
-    Account, Accounts, BPF_ALIGN_OF_U128, MAX_PERMITTED_DATA_INCREASE, MAX_TX_ACCOUNTS,
-    NON_DUP_MARKER,
-};
+use crate::{Account, Accounts, MAX_TX_ACCOUNTS, NON_DUP_MARKER};
 
 #[derive(Debug)]
 enum DeserAccount<'account> {
     NonDup(Account<'account>),
     Dup(usize),
-}
-
-/// Runtime deserialization internals
-impl Account<'_> {
-    /// Returns (pointer to start of next account or instruction data if last account, deserialized account)
-    ///
-    /// # Safety
-    /// - ptr must be pointing to the start of a non-duplicate account
-    ///   in the runtime serialized buffer
-    #[inline]
-    pub(crate) unsafe fn non_dup_from_ptr(ptr: *mut u8) -> (*mut u8, Self) {
-        let data_len_slice: &[u8; 8] = &*ptr.add(Self::DATA_LEN_OFFSET).cast();
-        let data_len = u64::from_le_bytes(*data_len_slice);
-        let total_len = Self::HEADER_LEN + data_len as usize + MAX_PERMITTED_DATA_INCREASE;
-
-        let res = Self(
-            &*(core::ptr::slice_from_raw_parts(ptr.cast_const(), total_len)
-                as *const UnsafeCell<[u8]>),
-        );
-        let ptr = ptr.add(total_len);
-        let ptr = ptr.add(ptr.align_offset(BPF_ALIGN_OF_U128));
-        let ptr = ptr.add(8);
-
-        (ptr, res)
-    }
-
-    /// Returns (pointer to start of next account or instruction data if last account, index of duplicated account)
-    ///
-    /// # Safety
-    /// - ptr must be pointing to the start of a duplicate account in the runtime serialized buffer
-    #[inline]
-    pub(crate) unsafe fn dup_from_ptr(ptr: *mut u8) -> (*mut u8, usize) {
-        let idx: &[u8; 8] = &*ptr.cast();
-        let idx = u64::from_le_bytes(*idx) as usize;
-        (ptr.add(8), idx)
-    }
 }
 
 #[derive(Debug)]

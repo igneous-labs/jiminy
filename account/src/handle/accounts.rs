@@ -185,20 +185,6 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
         let balance = close_acc.lamports();
         self.transfer_direct(close, refund_rent_to, balance)
     }
-
-    /// See [`Self::close`]
-    ///
-    /// # Safety
-    /// - rules for [`Account::realloc_unchecked`] apply
-    /// - rules for [`Self::transfer_direct_unchecked`] apply
-    #[inline]
-    pub unsafe fn close_unchecked(&mut self, close: AccountHandle, refund_rent_to: AccountHandle) {
-        let close_acc = self.get_mut(close);
-        close_acc.realloc_unchecked(0);
-        close_acc.assign_direct([0u8; 32]); // TODO: use const pubkey for system program
-        let balance = close_acc.lamports();
-        self.transfer_direct_unchecked(close, refund_rent_to, balance)
-    }
 }
 
 impl<const MAX_ACCOUNTS: usize> Default for Accounts<'_, MAX_ACCOUNTS> {
