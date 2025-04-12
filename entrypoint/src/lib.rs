@@ -74,19 +74,15 @@ macro_rules! program_entrypoint {
 pub unsafe fn deserialize<'prog, const MAX_ACCOUNTS: usize>(
     input: *mut u8,
 ) -> (Accounts<'prog, MAX_ACCOUNTS>, &'prog [u8], &'prog [u8; 32]) {
-    let total_accounts: &[u8; 8] = &*input.cast();
-    let total_accounts = u64::from_le_bytes(*total_accounts) as usize;
-    let input = input.add(8);
+    // DO NOT USE Iterator::by_ref().
+    // Its impl of fold() is the default while let Some(x) = next
+    // impl because it cannot mess iterator
+    // internal state up without full ownership of iterator
 
-    let mut accounts_deser: SavingAccountsDeser<'prog, MAX_ACCOUNTS> =
-        SavingAccountsDeser::new(input, total_accounts);
-    // consume the iterator to get to max cap or end of accounts section
-    accounts_deser.by_ref().count();
-    let (mut discarding_accounts_deser, accounts) = accounts_deser.finish();
-
-    // consume iterator to get to end of accounts section
-    discarding_accounts_deser.by_ref().count();
-    let input = discarding_accounts_deser.finish_unchecked();
+    let CompletedAccountsDeser {
+        accounts,
+        next: input,
+    } = CompletedAccountsDeser::deser(input);
 
     let ix_data_len_buf: &[u8; 8] = &*input.cast();
     let ix_data_len = u64::from_le_bytes(*ix_data_len_buf) as usize;
