@@ -131,9 +131,11 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     }
 }
 
-/// Special runtime-specific account mutators that require simultaneous mut access
-/// to 2 or more accounts
+/// Convenience methods for common operations
 impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
+    /// Transfers lamports from one account to the other by
+    /// directly decrementing from's and incrementing to's.
+    ///
     /// No-op if `from == to`
     #[inline]
     pub fn transfer_direct(
@@ -146,7 +148,7 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
         self.get_mut(to).inc_lamports(lamports)
     }
 
-    /// No-op if `from == to`
+    /// See [`Self::transfer_direct`].
     ///
     /// # Safety
     /// - rules of [`Account::dec_lamports_unchecked`] apply
@@ -162,6 +164,12 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
         self.get_mut(to).inc_lamports_unchecked(lamports);
     }
 
+    /// Close an account by
+    ///
+    /// 1. realloc to 0 size
+    /// 2. assign to system program
+    /// 3. [`Self::transfer_direct`] all lamports away to `refund_rent_to`
+    ///
     /// Account will still exist with same balance but with
     /// zero sized data and owner = system program
     /// if `close == refund_rent_to`
@@ -178,9 +186,7 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
         self.transfer_direct(close, refund_rent_to, balance)
     }
 
-    /// Account will still exist with same balance but with
-    /// zero sized data and owner = system program
-    /// if `close == refund_rent_to`
+    /// See [`Self::close`]
     ///
     /// # Safety
     /// - rules for [`Account::realloc_unchecked`] apply
@@ -235,6 +241,23 @@ impl<'account> Iterator for AccountsHandleIter<'_, 'account> {
         let rem = (self.tail - self.head).into();
         (rem, Some(rem))
     }
+
+    #[inline]
+    fn fold<B, F>(self, init: B, mut f: F) -> B
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
+    {
+        (self.head..self.tail).fold(init, |accum, idx| {
+            f(
+                accum,
+                AccountHandle {
+                    idx,
+                    _account_lifetime: PhantomData,
+                },
+            )
+        })
+    }
 }
 
 impl DoubleEndedIterator for AccountsHandleIter<'_, '_> {
@@ -249,6 +272,23 @@ impl DoubleEndedIterator for AccountsHandleIter<'_, '_> {
                 _account_lifetime: PhantomData,
             })
         }
+    }
+
+    #[inline]
+    fn rfold<B, F>(self, init: B, mut f: F) -> B
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
+    {
+        (self.head..self.tail).rfold(init, |accum, idx| {
+            f(
+                accum,
+                AccountHandle {
+                    idx,
+                    _account_lifetime: PhantomData,
+                },
+            )
+        })
     }
 }
 
