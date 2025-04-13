@@ -1,4 +1,4 @@
-//! .so file size: 11984
+//! .so file size: 11624
 
 #![cfg(feature = "test-sbf")]
 
@@ -82,7 +82,7 @@ fn pda_assign_basic() {
     assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
 }
 
-/// CUs: 7851
+/// CUs: 8672
 #[test]
 fn pda_assign_max_seeds() {
     // (MAX_SEEDS - 1) seeds

@@ -37,6 +37,11 @@ pub const MAX_PERMITTED_DATA_INCREASE: usize = 1_024 * 10;
 
 pub const BPF_ALIGN_OF_U128: usize = 8;
 
+/// 10 MiB
+///
+/// Copied from agave, same-named const
+pub const MAX_PERMITTED_DATA_LENGTH: usize = 10 * 1024 * 1024;
+
 /// # Implementation details
 ///
 /// - neither `Clone` nor `Copy`. The only way to access is via `&Self` or `&mut Self` returned

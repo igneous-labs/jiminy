@@ -1,4 +1,4 @@
-//! .so file size: 9816
+//! .so file size: 8328
 
 #![cfg(feature = "test-sbf")]
 
