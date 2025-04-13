@@ -3,9 +3,14 @@
 // - When working with raw pointers, rust cannot enforce aliasing rules, so it cannot optimize
 //   away redundant reads, so always try to reuse already computed offset data.
 //   E.g. there used to be an Account::dup_from_ptr method for API symmetry with non_dup_from_ptr,
-//   but that resulted in a redundant read of the duplicate marker vs if we just used the match byte directly.
+//   but that resulted in a redundant read of the duplicate marker vs if we just used the matched byte directly.
 
-use core::{cmp::min, marker::PhantomData, mem::size_of, ptr::NonNull};
+use core::{
+    cmp::min,
+    marker::PhantomData,
+    mem::{size_of, MaybeUninit},
+    ptr::NonNull,
+};
 
 use crate::{
     Account, AccountRaw, Accounts, BPF_ALIGN_OF_U128, MAX_PERMITTED_DATA_INCREASE, NON_DUP_MARKER,
@@ -23,44 +28,58 @@ use crate::{
 pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
     input: *mut u8,
 ) -> (*mut u8, Accounts<'account, MAX_ACCOUNTS>) {
+    const UNINIT: MaybeUninit<Account<'_>> = MaybeUninit::uninit();
+
     let accounts_len_buf = &*input.cast();
     let accounts_len = u64::from_le_bytes(*accounts_len_buf) as usize;
-    let mut input = input.add(8);
-
-    let mut res = Accounts::new();
+    let input = input.add(8);
 
     let saved_accounts_len = min(accounts_len, MAX_ACCOUNTS);
+    let mut accounts = [UNINIT; MAX_ACCOUNTS];
 
-    for _ in 0..saved_accounts_len {
+    // its probably more functional to have `accounts` as part of the
+    // accumulator value but the compiler generates some absolutely
+    // disgustingly inefficient code when that happens, so just mutate
+    // `accounts` in the closure instead.
+    //
+    // Probably a good rule of thumb is to make sure fold() accumulator values
+    // fit into a single registers for folds(), so only ints and references allowed
+    let input = (0..saved_accounts_len).fold(input, |input, i| {
         let (new_input, acc) = match input.read() {
             NON_DUP_MARKER => Account::non_dup_from_ptr(input),
             dup_idx => {
                 // bitwise copy of pointer
                 //
                 // slice::get_unchecked safety: runtime should always return indices
-                // that we've already deserialized, which is < len()
-                let acc = res
-                    .accounts
-                    .get_unchecked(dup_idx as usize)
-                    .assume_init_read();
+                // that we've already deserialized, which is within bounds of accounts
+                let acc = accounts.get_unchecked(dup_idx as usize).assume_init_read();
                 (input.add(8), acc)
             }
         };
-        // push_unchecked safety: saved_accounts_len bounds check above
-        res.push_unchecked(acc);
-        input = new_input;
-    }
+        // unchecked index safety: bounds checked by saved_accounts_len above
+        accounts.get_unchecked_mut(i).write(acc);
+        new_input
+    });
 
-    // some duplicate logic here but avoiding the bounds check branch
-    // results in halved CUs per account
-    for _ in saved_accounts_len..accounts_len {
-        input = match input.read() {
-            NON_DUP_MARKER => Account::non_dup_from_ptr(input).0,
-            _dup_idx => input.add(8),
-        };
-    }
+    // some duplicate logic here but this avoid bounds check before pushing
+    // into accounts. Results in reduced CUs per account
+    let input = (saved_accounts_len..accounts_len).fold(input, |input, _| match input.read() {
+        NON_DUP_MARKER => Account::non_dup_from_ptr(input).0,
+        _dup_idx => input.add(8),
+    });
 
-    (input, res)
+    (
+        input,
+        // we use to have a nice `push_unchecked()` method for adding accounts
+        // to `Accounts` that would write then inc length instead of constructing it at the end like here
+        // but the compiler couldnt figure out that it could accumulate the final length
+        // and only set it at the end so it was doing the absolutely redacted thing of
+        // load-increment-store (3x the instructions!!!) on every iteration of deserializing an account.
+        Accounts {
+            accounts,
+            len: saved_accounts_len,
+        },
+    )
 }
 
 /// Runtime deserialization internals

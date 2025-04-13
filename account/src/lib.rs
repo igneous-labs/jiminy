@@ -293,6 +293,8 @@ impl Eq for Account<'_> {}
 
 #[cfg(test)]
 mod tests {
+    use core::mem::MaybeUninit;
+
     use super::*;
 
     #[test]
@@ -300,10 +302,10 @@ mod tests {
         let mut invalid_runtime_buffer = [];
         let (_, invalid_acc) =
             unsafe { Account::non_dup_from_ptr(invalid_runtime_buffer.as_mut_ptr()) };
-        let mut invalid_accounts: Accounts<'_, 1> = Accounts::new();
-        unsafe {
-            invalid_accounts.push_unchecked(invalid_acc);
-        }
+        let mut invalid_accounts: Accounts<'_, 1> = Accounts {
+            accounts: [MaybeUninit::new(invalid_acc)],
+            len: 1,
+        };
 
         let h = unsafe { invalid_accounts.handle_unchecked(0) };
         let _first_immut_borrow = invalid_accounts.get(h);

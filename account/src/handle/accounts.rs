@@ -20,29 +20,7 @@ use super::AccountHandle;
 #[derive(Debug)]
 pub struct Accounts<'account, const MAX_ACCOUNTS: usize = MAX_TX_ACCOUNTS> {
     pub(crate) accounts: [MaybeUninit<Account<'account>>; MAX_ACCOUNTS],
-    len: usize,
-}
-
-/// Construction
-impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
-    #[inline]
-    pub(crate) const fn new() -> Self {
-        const UNINIT: MaybeUninit<Account<'_>> = MaybeUninit::uninit();
-
-        Self {
-            accounts: [UNINIT; MAX_ACCOUNTS],
-            len: 0,
-        }
-    }
-
-    /// # Safety
-    /// - [`self`] must not be full (self.len == N)
-    #[inline]
-    pub(crate) unsafe fn push_unchecked(&mut self, account: Account<'account>) {
-        let curr_len = self.len();
-        self.accounts.get_unchecked_mut(curr_len).write(account);
-        self.len += 1;
-    }
+    pub(crate) len: usize,
 }
 
 /// Accessors
