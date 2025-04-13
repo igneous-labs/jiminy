@@ -20,7 +20,7 @@ use crate::Account;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct AccountHandle<'account> {
-    idx: u8,
+    idx: usize,
 
     /// Bounding lifetime by [`Account`]'s lifetime ensures
     /// at compile time the underlying [`Account`] data is valid for all usages of this struct

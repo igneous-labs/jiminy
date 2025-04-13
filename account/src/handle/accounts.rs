@@ -6,6 +6,11 @@ use crate::{Account, MAX_TX_ACCOUNTS};
 
 use super::AccountHandle;
 
+// NB: MAX_ACCOUNTS should be able to fit into a u8, but its actually
+// usually more CU efficient to use usize or u32 because ebpf only has
+// 32-bit and 64-bit ALUs, so any ops with u8 might be preceded with/succeeded by
+// ops like zeroing out the high bits of the register etc
+
 /// An opaque sequence of accounts passed to the instruction by the runtime.
 ///
 /// It dispenses [`AccountHandle`]s that then allow consumers to borrow [`Account`]s
@@ -15,14 +20,13 @@ use super::AccountHandle;
 #[derive(Debug)]
 pub struct Accounts<'account, const MAX_ACCOUNTS: usize = MAX_TX_ACCOUNTS> {
     pub(crate) accounts: [MaybeUninit<Account<'account>>; MAX_ACCOUNTS],
-    len: u8,
+    len: usize,
 }
 
 /// Construction
 impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     #[inline]
     pub(crate) const fn new() -> Self {
-        #[allow(clippy::declare_interior_mutable_const)]
         const UNINIT: MaybeUninit<Account<'_>> = MaybeUninit::uninit();
 
         Self {
@@ -44,13 +48,8 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
 /// Accessors
 impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     #[inline]
-    pub const fn len_u8(&self) -> u8 {
-        self.len
-    }
-
-    #[inline]
     pub const fn len(&self) -> usize {
-        self.len as usize
+        self.len
     }
 
     #[inline]
@@ -61,7 +60,7 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     /// # Safety
     /// - idx should be within bounds
     #[inline]
-    pub const unsafe fn handle_unchecked(&self, idx: u8) -> AccountHandle<'account> {
+    pub const unsafe fn handle_unchecked(&self, idx: usize) -> AccountHandle<'account> {
         AccountHandle {
             idx,
             _account_lifetime: PhantomData,
@@ -69,8 +68,8 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     }
 
     #[inline]
-    pub const fn handle(&self, idx: u8) -> Option<AccountHandle<'account>> {
-        if self.len_u8() <= idx {
+    pub const fn handle(&self, idx: usize) -> Option<AccountHandle<'account>> {
+        if self.len() <= idx {
             None
         } else {
             Some(unsafe { self.handle_unchecked(idx) })
@@ -81,11 +80,7 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     pub fn get(&self, handle: AccountHandle) -> &Account {
         // safety: handle should be a valid handle previously
         // dispensed by `get_handle` or `get_handle_unchecked`
-        unsafe {
-            self.accounts
-                .get_unchecked(usize::from(handle.idx))
-                .assume_init_ref()
-        }
+        unsafe { self.accounts.get_unchecked(handle.idx).assume_init_ref() }
     }
 
     /// Only 1 account in `Self` can be mutated at any time due to the presence of
@@ -98,7 +93,7 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
         // dispensed by `handle` or `handle_unchecked`
         unsafe {
             self.accounts
-                .get_unchecked_mut(usize::from(handle.idx))
+                .get_unchecked_mut(handle.idx)
                 .assume_init_mut()
         }
     }
@@ -107,7 +102,7 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     pub const fn iter<'a>(&'a self) -> AccountsHandleIter<'a, 'account> {
         AccountsHandleIter {
             head: 0,
-            tail: self.len_u8(),
+            tail: self.len(),
             _accounts: PhantomData,
         }
     }
@@ -118,7 +113,7 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
     /// Transfers lamports from one account to the other by
     /// directly decrementing from's and incrementing to's.
     ///
-    /// No-op if `from == to`
+    /// Does nothing if `from == to`, but still performs the checks
     #[inline]
     pub fn transfer_direct(
         &mut self,
@@ -171,9 +166,9 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
 
 /// Iterator over an [`Accounts`]' [`AccountHandle`]s
 pub struct AccountsHandleIter<'a, 'account> {
-    head: u8,
-    tail: u8,
-    /// we don't actually need to hold the `Accounts` ref since we're just returning u8s,
+    head: usize,
+    tail: usize,
+    /// we don't actually need to hold the `Accounts` ref since we're just returning indexes,
     /// but we must bound this struct's lifetimes to the ref's lifetimes.
     ///
     /// We can also remove the const generic
@@ -199,7 +194,7 @@ impl<'account> Iterator for AccountsHandleIter<'_, 'account> {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let rem = (self.tail - self.head).into();
+        let rem = self.tail - self.head;
         (rem, Some(rem))
     }
 

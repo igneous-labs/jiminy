@@ -1,3 +1,10 @@
+// Implementation notes:
+//
+// - When working with raw pointers, rust cannot enforce aliasing rules, so it cannot optimize
+//   away redundant reads, so always try to reuse already computed offset data.
+//   E.g. there used to be an Account::dup_from_ptr method for API symmetry with non_dup_from_ptr,
+//   but that resulted in a redundant read of the duplicate marker vs if we just used the match byte directly.
+
 use core::{cmp::min, marker::PhantomData, mem::size_of, ptr::NonNull};
 
 use crate::{
@@ -27,14 +34,16 @@ pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
     for _ in 0..saved_accounts_len {
         let (new_input, acc) = match input.read() {
             NON_DUP_MARKER => Account::non_dup_from_ptr(input),
-            _dup => {
-                let (new_input, idx) = Account::dup_from_ptr(input);
+            dup_idx => {
                 // bitwise copy of pointer
                 //
                 // slice::get_unchecked safety: runtime should always return indices
                 // that we've already deserialized, which is < len()
-                let acc = res.accounts.get_unchecked(idx).assume_init_read();
-                (new_input, acc)
+                let acc = res
+                    .accounts
+                    .get_unchecked(dup_idx as usize)
+                    .assume_init_read();
+                (input.add(8), acc)
             }
         };
         // push_unchecked safety: saved_accounts_len bounds check above
@@ -47,7 +56,7 @@ pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
     for _ in saved_accounts_len..accounts_len {
         input = match input.read() {
             NON_DUP_MARKER => Account::non_dup_from_ptr(input).0,
-            _dup => Account::dup_from_ptr(input).0,
+            _dup_idx => input.add(8),
         };
     }
 
@@ -77,16 +86,5 @@ impl Account<'_> {
         let ptr = ptr.add(8);
 
         (ptr, res)
-    }
-
-    /// Returns (pointer to start of next account or instruction data if last account, index of duplicated account)
-    ///
-    /// # Safety
-    /// - ptr must be pointing to the start of a duplicate account in the runtime serialized buffer
-    #[inline]
-    unsafe fn dup_from_ptr(ptr: *mut u8) -> (*mut u8, usize) {
-        let idx: &[u8; 8] = &*ptr.cast();
-        let idx = u64::from_le_bytes(*idx) as usize;
-        (ptr.add(8), idx)
     }
 }
