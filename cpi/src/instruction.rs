@@ -21,8 +21,8 @@ pub struct Instruction<
 > {
     accounts: [MaybeUninit<(AccountHandle<'account>, AccountPerms)>; MAX_ACCOUNTS_LEN],
     data: [MaybeUninit<u8>; MAX_DATA_LEN],
-    accounts_len: u8,
-    data_len: u16,
+    accounts_len: usize,
+    data_len: usize,
     prog: AccountHandle<'account>,
 }
 
@@ -31,15 +31,6 @@ impl<'account, const MAX_DATA_LEN: usize, const MAX_ACCOUNTS_LEN: usize>
 {
     #[inline(always)]
     pub const fn new_empty(prog: AccountHandle<'account>) -> Self {
-        const {
-            if MAX_DATA_LEN > u16::MAX as usize {
-                panic!("MAX_DATA_LEN cannot be > u16::MAX");
-            }
-            if MAX_ACCOUNTS_LEN > u8::MAX as usize {
-                panic!("MAX_ACCOUNTS_LEN cannot be > u8::MAX")
-            }
-        };
-
         const UNINIT_ACCOUNT: MaybeUninit<(AccountHandle<'_>, AccountPerms)> =
             MaybeUninit::uninit();
         const UNINIT_DATA: MaybeUninit<u8> = MaybeUninit::uninit();
@@ -76,7 +67,7 @@ impl<'account, const MAX_DATA_LEN: usize, const MAX_ACCOUNTS_LEN: usize>
             .copy_to_nonoverlapping(self.data.as_mut_ptr().cast(), bytes.len());
         // as-safety: if we have enough space, then self.data_len + slice.len() must be <= u16::MAX
         // since max possible MAX_DATA_LEN is u16::MAX
-        self.data_len += bytes.len() as u16;
+        self.data_len += bytes.len();
     }
 
     /// Returns `Err(accounts)` if self.accounts does not have enough capacity
@@ -108,7 +99,7 @@ impl<'account, const MAX_DATA_LEN: usize, const MAX_ACCOUNTS_LEN: usize>
             .copy_to_nonoverlapping(self.accounts.as_mut_ptr().cast(), accounts.len());
         // as-safety: if we have enough space, then self.accounts_len + slice.len() must be <= u8::MAX
         // since max possible MAX_ACCOUNTS_LEN is u8::MAX
-        self.accounts_len += accounts.len() as u8;
+        self.accounts_len += accounts.len();
     }
 
     /// Returns None if `data.len() > MAX_DATA_LEN` or `accounts.len() > MAX_ACCOUNTS_LEN`
@@ -140,13 +131,8 @@ impl<'account, const MAX_DATA_LEN: usize, const MAX_ACCOUNTS_LEN: usize>
     }
 
     #[inline(always)]
-    pub const fn data_len_u16(&self) -> u16 {
-        self.data_len
-    }
-
-    #[inline(always)]
     pub const fn data_len(&self) -> usize {
-        self.data_len_u16() as usize
+        self.data_len
     }
 
     #[inline(always)]
@@ -155,13 +141,8 @@ impl<'account, const MAX_DATA_LEN: usize, const MAX_ACCOUNTS_LEN: usize>
     }
 
     #[inline(always)]
-    pub const fn accounts_len_u8(&self) -> u8 {
-        self.accounts_len
-    }
-
-    #[inline(always)]
     pub const fn accounts_len(&self) -> usize {
-        self.accounts_len_u8() as usize
+        self.accounts_len
     }
 
     #[inline(always)]
