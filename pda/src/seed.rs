@@ -10,7 +10,7 @@ pub struct PdaSeed<'seed> {
 }
 
 impl<'seed> PdaSeed<'seed> {
-    #[inline]
+    #[inline(always)]
     pub const fn new(seed: &'seed [u8]) -> Self {
         Self {
             ptr: seed.as_ptr(),
@@ -19,14 +19,14 @@ impl<'seed> PdaSeed<'seed> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn as_slice(&self) -> &'seed [u8] {
         unsafe { core::slice::from_raw_parts(self.ptr, self.len as usize) }
     }
 }
 
 impl<'seed> From<&'seed [u8]> for PdaSeed<'seed> {
-    #[inline]
+    #[inline(always)]
     fn from(value: &'seed [u8]) -> Self {
         Self::new(value)
     }
@@ -35,7 +35,7 @@ impl<'seed> From<&'seed [u8]> for PdaSeed<'seed> {
 impl Deref for PdaSeed<'_> {
     type Target = [u8];
 
-    #[inline]
+    #[inline(always)]
     fn deref(&self) -> &Self::Target {
         self.as_slice()
     }

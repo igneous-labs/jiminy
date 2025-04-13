@@ -14,7 +14,7 @@ pub struct PdaSigner<'signer, 'seed> {
 }
 
 impl<'signer, 'seed> PdaSigner<'signer, 'seed> {
-    #[inline]
+    #[inline(always)]
     pub const fn new(seeds: &'signer [PdaSeed<'seed>]) -> Self {
         Self {
             ptr: seeds.as_ptr(),
@@ -23,14 +23,14 @@ impl<'signer, 'seed> PdaSigner<'signer, 'seed> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn as_slice(&self) -> &'signer [PdaSeed<'seed>] {
         unsafe { core::slice::from_raw_parts(self.ptr, self.len as usize) }
     }
 }
 
 impl<'signer, 'seed> From<&'signer [PdaSeed<'seed>]> for PdaSigner<'signer, 'seed> {
-    #[inline]
+    #[inline(always)]
     fn from(value: &'signer [PdaSeed<'seed>]) -> Self {
         Self::new(value)
     }
@@ -39,7 +39,7 @@ impl<'signer, 'seed> From<&'signer [PdaSeed<'seed>]> for PdaSigner<'signer, 'see
 impl<'seed> Deref for PdaSigner<'_, 'seed> {
     type Target = [PdaSeed<'seed>];
 
-    #[inline]
+    #[inline(always)]
     fn deref(&self) -> &Self::Target {
         self.as_slice()
     }
