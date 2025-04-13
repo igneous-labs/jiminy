@@ -17,7 +17,7 @@ use solana_sdk::{
 const PROG_NAME: &str = "pda_assign";
 const PROG_ID: Pubkey = pubkey!("xtjwVYz95ZdAGoGzwP5HFm1mrNMWpB3L4aDMRwbhd6d");
 
-/// CUs: 4565
+/// CUs: 4658
 #[test]
 fn pda_assign_basic() {
     // 2 seeds, one of len 0, other of len 32

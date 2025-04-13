@@ -16,7 +16,7 @@ use solana_sdk::{
 const PROG_NAME: &str = "cpi_sys_transfer";
 const PROG_ID: Pubkey = pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
 
-/// CUs: 1509
+/// CUs: 1322
 #[test]
 fn transfer_basic() {
     const TRF_AMT: u64 = 1_000_000_000;
