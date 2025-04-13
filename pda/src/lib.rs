@@ -52,7 +52,7 @@ pub fn try_find_program_address(
     }
 }
 
-/// Returns`None` if provided seeds do not result in a valid PDA
+/// Returns `None` if provided seeds do not result in a valid PDA
 #[inline]
 pub fn create_program_address(seeds: &[PdaSeed], program_id: &[u8; 32]) -> Option<[u8; 32]> {
     #[cfg(target_os = "solana")]

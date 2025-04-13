@@ -53,18 +53,13 @@ macro_rules! program_entrypoint {
         #[no_mangle]
         pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
             const _ASSERT_MAX_WITHIN_RANGE: () = if $maximum > u8::MAX as usize {
-                panic!("max accounts must be < u8::MAX")
+                panic!("max accounts must be <= u8::MAX")
             };
 
-            let (mut accounts, account_handles, instruction_data, program_id) =
+            let (mut accounts, instruction_data, program_id) =
                 $crate::deserialize::<$maximum>(input);
 
-            match $process_instruction(
-                &mut accounts,
-                &account_handles,
-                instruction_data,
-                program_id,
-            ) {
+            match $process_instruction(&mut accounts, instruction_data, program_id) {
                 Ok(()) => $crate::SUCCESS,
                 Err(error) => error.into(),
             }
@@ -75,30 +70,13 @@ macro_rules! program_entrypoint {
 /// # Safety
 /// - input must be a pointer returned by the solana runtime pointing to the start of the block
 ///   of program input memory (0x400000000)
-#[inline]
+#[inline(always)]
 pub unsafe fn deserialize<'prog, const MAX_ACCOUNTS: usize>(
     input: *mut u8,
-) -> (
-    Accounts<'prog, MAX_ACCOUNTS>,
-    AccountHandles<'prog, MAX_ACCOUNTS>,
-    &'prog [u8],
-    &'prog [u8; 32],
-) {
-    let total_accounts: &[u8; 8] = &*input.cast();
-    let total_accounts = u64::from_le_bytes(*total_accounts) as usize;
-    let input = input.add(8);
-
-    let mut accounts_deser: SavingAccountsDeser<'prog, MAX_ACCOUNTS> =
-        SavingAccountsDeser::new(input, total_accounts);
-    let account_handles: AccountHandles<'prog, MAX_ACCOUNTS> = accounts_deser.by_ref().collect();
-    let (mut discarding_accounts_deser, accounts) = accounts_deser.finish();
-
-    // consume iterator to get to end of accounts section
-    discarding_accounts_deser.by_ref().for_each(core::mem::drop);
-    let input = discarding_accounts_deser.finish_unchecked();
-
-    let ix_data_len_buf: &[u8; 8] = &*input.cast();
-    let ix_data_len = u64::from_le_bytes(*ix_data_len_buf) as usize;
+) -> (Accounts<'prog, MAX_ACCOUNTS>, &'prog [u8], &'prog [u8; 32]) {
+    let (input, accounts) = deser_accounts(input);
+    // cast-safety: input is 8-byte aligned after deserializing all accounts
+    let ix_data_len = input.cast::<u64>().read() as usize;
 
     let input = input.add(8);
     let ix_data = core::slice::from_raw_parts(input, ix_data_len);
@@ -106,7 +84,7 @@ pub unsafe fn deserialize<'prog, const MAX_ACCOUNTS: usize>(
     let input = input.add(ix_data_len);
     let prog_id: &[u8; 32] = &*input.cast();
 
-    (accounts, account_handles, ix_data, prog_id)
+    (accounts, ix_data, prog_id)
 }
 
 #[cfg(test)]
@@ -118,7 +96,6 @@ mod tests {
     fn comptime_check_entrypoint_types_generic() {
         fn process_ix_const_generic<const MAX_ACCOUNTS: usize>(
             _accounts: &mut Accounts<'_, MAX_ACCOUNTS>,
-            _account_handles: &AccountHandles<'_, MAX_ACCOUNTS>,
             _data: &[u8],
             _prog_id: &[u8; 32],
         ) -> Result<(), ProgramError> {

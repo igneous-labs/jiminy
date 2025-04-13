@@ -1,7 +1,6 @@
 #![allow(unexpected_cfgs)]
 
 use jiminy_cpi::{invoke_signed, program_error::ProgramError};
-use jiminy_entrypoint::account::AccountHandle;
 use jiminy_pda::{
     create_program_address, try_find_program_address, PdaSeed, PdaSeedArr, PdaSigner,
 };
@@ -16,11 +15,11 @@ jiminy_entrypoint::entrypoint!(process_ix, MAX_ACCS);
 
 fn process_ix(
     accounts: &mut Accounts,
-    account_handles: &[AccountHandle],
     data: &[u8],
     prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
-    let Some([sys_prog, pda]) = account_handles.get(..2) else {
+    let mut accounts_itr = accounts.iter();
+    let [Some(sys_prog), Some(pda)] = core::array::from_fn(|_| accounts_itr.next()) else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     let mut seeds = SeedsItr {
@@ -32,7 +31,7 @@ fn process_ix(
     let Some((pda_computed, bump)) = try_find_program_address(&seeds, prog_id) else {
         return Err(ProgramError::InvalidSeeds);
     };
-    if pda_computed != *accounts.get(*pda).key() {
+    if pda_computed != *accounts.get(pda).key() {
         return Err(ProgramError::Custom(1));
     }
 
@@ -43,18 +42,18 @@ fn process_ix(
     let Some(pda_computed) = create_program_address(&seeds, prog_id) else {
         return Err(ProgramError::InvalidSeeds);
     };
-    if pda_computed != *accounts.get(*pda).key() {
+    if pda_computed != *accounts.get(pda).key() {
         return Err(ProgramError::Custom(2));
     }
 
     // assign pda to this prog
     invoke_signed::<MAX_ACCS, MAX_CPI_ACCS>(
         accounts,
-        assign_ix(*sys_prog, AssignAccounts { assign: *pda }, *prog_id).as_instr(),
+        assign_ix(sys_prog, AssignAccounts { assign: pda }, *prog_id).as_instr(),
         &[PdaSigner::new(&seeds)],
     )?;
 
-    if accounts.get(*pda).owner() != prog_id {
+    if accounts.get(pda).owner() != prog_id {
         return Err(ProgramError::Custom(3));
     }
     Ok(())

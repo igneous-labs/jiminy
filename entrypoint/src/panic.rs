@@ -12,8 +12,8 @@ macro_rules! default_panic_handler {
     };
 }
 
-#[inline]
-pub fn log_panic(info: &PanicInfo<'_>) -> ! {
+#[inline(always)]
+pub fn log_panic(info: &PanicInfo<'_>) {
     #[cfg(target_os = "solana")]
     {
         if let Some(location) = info.location() {
@@ -24,7 +24,6 @@ pub fn log_panic(info: &PanicInfo<'_>) -> ! {
         }
         const MSG: &str = "** PANICKED **";
         unsafe { jiminy_syscall::sol_log_(MSG.as_ptr(), MSG.len() as u64) };
-        loop {}
     }
 
     #[cfg(not(target_os = "solana"))]

@@ -4,7 +4,7 @@ pub struct BumpAllocator {
 }
 
 impl BumpAllocator {
-    #[inline]
+    #[inline(always)]
     pub const fn new(start: usize, len: usize) -> Self {
         Self { start, len }
     }
@@ -12,7 +12,7 @@ impl BumpAllocator {
 
 unsafe impl core::alloc::GlobalAlloc for BumpAllocator {
     /// Allocates memory as a bump allocator.
-    #[inline]
+    #[inline(always)]
     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
         let pos_ptr = self.start as *mut usize;
 
@@ -29,7 +29,8 @@ unsafe impl core::alloc::GlobalAlloc for BumpAllocator {
         *pos_ptr = pos;
         pos as *mut u8
     }
-    #[inline]
+
+    #[inline(always)]
     unsafe fn dealloc(&self, _: *mut u8, _: core::alloc::Layout) {
         // I'm a bump allocator, I don't free.
     }

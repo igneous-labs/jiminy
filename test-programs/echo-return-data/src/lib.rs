@@ -11,7 +11,7 @@
 
 use std::cmp::min;
 
-use jiminy_entrypoint::program_error::ProgramError;
+use jiminy_entrypoint::{account::AccountHandle, program_error::ProgramError};
 use jiminy_return_data::{get_return_data, set_return_data, MAX_RETURN_DATA};
 
 /// Keep this low to test handling of discarded accounts
@@ -19,18 +19,16 @@ use jiminy_return_data::{get_return_data, set_return_data, MAX_RETURN_DATA};
 pub const MAX_ACCS: usize = 8;
 
 type Accounts<'a> = jiminy_entrypoint::account::Accounts<'a, MAX_ACCS>;
-type AccountHandles<'a> = jiminy_entrypoint::account::AccountHandles<'a, MAX_ACCS>;
 
 jiminy_entrypoint::entrypoint!(process_ix, MAX_ACCS);
 
 fn process_ix(
     accounts: &mut Accounts,
-    account_handles: &AccountHandles,
     data: &[u8],
     prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
     let mut ret = [0u8; MAX_RETURN_DATA];
-    let mut i = put_accounts(&mut ret, accounts, account_handles);
+    let mut i = put_accounts(&mut ret, accounts, accounts.iter());
 
     let remaining = MAX_RETURN_DATA - i;
     let data_len_truncated = min(remaining.saturating_sub(32), data.len());
@@ -55,7 +53,11 @@ fn process_ix(
 }
 
 // split separate fn with inline(never) to minimize stack usage
-fn put_accounts(ret: &mut [u8], accounts: &Accounts, account_handles: &AccountHandles) -> usize {
+fn put_accounts<'a>(
+    ret: &mut [u8],
+    accounts: &Accounts,
+    account_handles: impl IntoIterator<Item = AccountHandle<'a>>,
+) -> usize {
     let mut i = 0;
 
     for h in account_handles {

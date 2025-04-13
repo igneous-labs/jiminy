@@ -1,7 +1,11 @@
 #![cfg_attr(not(test), no_std)]
 #![allow(unexpected_cfgs)]
 
-use core::cell::UnsafeCell;
+use core::{
+    marker::PhantomData,
+    mem::{align_of, size_of},
+    ptr::NonNull,
+};
 
 // Re-exports
 pub mod program_error {
@@ -35,71 +39,94 @@ pub const BPF_ALIGN_OF_U128: usize = 8;
 
 /// # Implementation details
 ///
-/// - the slice the inner ref points to is the entire data slice exclusively owned by this account, which is
-///   the 88-byte account header + data_len bytes + 10kb spare space for reallocs. Excludes subsequent alignment padding bytes.
-/// - inner field is an `UnsafeCell` because runtime account duplication marker mean multiple [`Account`]s may point
-///   to and mutate the same data, so we need to opt out of immutability guarantee of `&`
 /// - neither `Clone` nor `Copy`. The only way to access is via `&Self` or `&mut Self` returned
 ///   from a [`crate::Accounts`] dispensed [`crate::AccountHandle`]
 /// - the `'account` lifetime is pretty much synonymous with `'static` since the buffer it points to is valid for the entire
 ///   program's execution
 #[derive(Debug)]
 #[repr(transparent)]
-pub struct Account<'account>(&'account UnsafeCell<[u8]>);
+pub struct Account<'account> {
+    ptr: NonNull<AccountRaw>,
 
-/// struct offsets
-impl Account<'_> {
-    pub const IS_SIGNER_OFFSET: usize = 1;
-    pub const IS_WRITABLE_OFFSET: usize = Self::IS_SIGNER_OFFSET + 1;
-    pub const IS_EXECUTABLE_OFFSET: usize = Self::IS_WRITABLE_OFFSET + 1;
-
-    pub const KEY_OFFSET: usize = Self::IS_EXECUTABLE_OFFSET + 5;
-    pub const OWNER_OFFSET: usize = Self::KEY_OFFSET + 32;
-    pub const LAMPORTS_OFFSET: usize = Self::OWNER_OFFSET + 32;
-    pub const DATA_LEN_OFFSET: usize = Self::LAMPORTS_OFFSET + 8;
-
-    pub const HEADER_LEN: usize = Self::DATA_LEN_OFFSET + 8;
-    pub const DATA_OFFSET: usize = Self::HEADER_LEN;
+    // Need this to remove covariance of NonNull;
+    // all `Accounts` must have the same 'account lifetime.
+    //
+    // TBH I dont fully get it either yet but this thing is like
+    // an UnsafeCell so we should follow UnsafeCell's variance
+    // https://doc.rust-lang.org/nomicon/subtyping.html#variance
+    _phantom: PhantomData<&'account mut AccountRaw>,
 }
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+struct AccountRaw {
+    _duplicate_flag: u8,
+
+    /// Indicates whether the transaction was signed by this account.
+    is_signer: u8,
+
+    /// Indicates whether the account is writable.
+    is_writable: u8,
+
+    /// Indicates whether this account represents a program.
+    is_executable: u8,
+
+    /// The number of bytes this account has already grown by
+    /// from its original size. A negative value means the account
+    /// has shrunk
+    ///
+    /// Capped at [`crate::MAX_PERMITTED_DATA_INCREASE`].
+    ///
+    /// Overflow safety: solana accounts have a max data size of 10Mib,
+    /// well within i32 range in either +/- direction.
+    ///
+    /// These 4 bytes here used to be struct padding bytes,
+    /// until anza decided to repurpose them
+    /// as scratch space for recording data to support realloc in 1.10.
+    /// Guaranteed to be zero at entrypoint time.
+    realloc_budget_used: i32,
+
+    /// Public key of the account.
+    key: [u8; 32],
+
+    /// Program that owns this account. Modifiable by programs.
+    owner: [u8; 32],
+
+    /// The lamports in the account. Modifiable by programs.
+    lamports: u64,
+
+    /// Length of the data. Modifiable by programs.
+    data_len: u64,
+}
+
+const _CHECK_ACCOUNT_RAW_SIZE: () = assert!(size_of::<AccountRaw>() == 88);
+const _CHECK_ACCOUN_RAW_ALIGN: () = assert!(align_of::<AccountRaw>() == 8);
 
 /// Accessors
 impl Account<'_> {
-    #[inline]
-    fn get_bool(&self, offset: usize) -> bool {
-        let a = unsafe { &*self.0.get() };
-        let byte = unsafe { a.get_unchecked(offset) };
-        *byte != 0
+    #[inline(always)]
+    const fn as_raw(&self) -> &AccountRaw {
+        unsafe { self.ptr.as_ref() }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn is_signer(&self) -> bool {
-        self.get_bool(Self::IS_SIGNER_OFFSET)
+        self.as_raw().is_signer != 0
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn is_writable(&self) -> bool {
-        self.get_bool(Self::IS_WRITABLE_OFFSET)
+        self.as_raw().is_writable != 0
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn is_executable(&self) -> bool {
-        self.get_bool(Self::IS_EXECUTABLE_OFFSET)
+        self.as_raw().is_executable != 0
     }
 
-    #[inline]
-    fn get_byte_slice<const N: usize>(&self, offset: usize) -> &[u8; N] {
-        unsafe { &*self.0.get().cast::<u8>().add(offset).cast() }
-    }
-
-    #[inline]
-    fn get_u64(&self, offset: usize) -> u64 {
-        let data_len_slice: &[u8; 8] = self.get_byte_slice(offset);
-        u64::from_le_bytes(*data_len_slice)
-    }
-
-    #[inline]
+    #[inline(always)]
     pub fn lamports(&self) -> u64 {
-        self.get_u64(Self::LAMPORTS_OFFSET)
+        self.as_raw().lamports
     }
 
     /// Only used for CPI helpers.
@@ -107,45 +134,45 @@ impl Account<'_> {
     /// To read and manipulate lamports, use
     /// [`Self::lamports`] and [`Self::set_lamports`], [`Self::inc_lamports`],
     /// [`Self::dec_lamports`] instead.
-    #[inline]
+    #[inline(always)]
     pub fn lamports_ref(&self) -> &u64 {
-        unsafe { &*self.0.get().cast::<u8>().add(Self::LAMPORTS_OFFSET).cast() }
+        &self.as_raw().lamports
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn data_len_u64(&self) -> u64 {
-        self.get_u64(Self::DATA_LEN_OFFSET)
+        self.as_raw().data_len
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn data_len(&self) -> usize {
         self.data_len_u64() as usize
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn key(&self) -> &[u8; 32] {
-        self.get_byte_slice(Self::KEY_OFFSET)
+        &self.as_raw().key
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn owner(&self) -> &[u8; 32] {
-        self.get_byte_slice(Self::OWNER_OFFSET)
+        &self.as_raw().owner
     }
 }
 
 /// Mutators
 impl Account<'_> {
-    #[inline]
-    fn get_byte_slice_mut<const N: usize>(&mut self, offset: usize) -> &mut [u8; N] {
-        unsafe { &mut *self.0.get().cast::<u8>().add(offset).cast() }
+    #[inline(always)]
+    fn as_raw_mut(&mut self) -> &mut AccountRaw {
+        unsafe { self.ptr.as_mut() }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn set_lamports(&mut self, new_lamports: u64) {
-        *self.get_byte_slice_mut(Self::LAMPORTS_OFFSET) = new_lamports.to_le_bytes();
+        self.as_raw_mut().lamports = new_lamports;
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn inc_lamports(&mut self, inc_lamports: u64) -> Result<(), ProgramError> {
         match self.lamports().checked_add(inc_lamports) {
             Some(new_lamports) => {
@@ -158,13 +185,13 @@ impl Account<'_> {
 
     /// # Safety
     /// - increment must not result in overflow
-    #[inline]
+    #[inline(always)]
     pub unsafe fn inc_lamports_unchecked(&mut self, inc_lamports: u64) {
         let new_lamports = self.lamports() + inc_lamports;
         self.set_lamports(new_lamports);
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn dec_lamports(&mut self, dec_lamports: u64) -> Result<(), ProgramError> {
         match self.lamports().checked_sub(dec_lamports) {
             Some(new_lamports) => {
@@ -177,101 +204,75 @@ impl Account<'_> {
 
     /// # Safety
     /// - decrement must not result in overflow
-    #[inline]
+    #[inline(always)]
     pub unsafe fn dec_lamports_unchecked(&mut self, dec_lamports: u64) {
         let new_lamports = self.lamports() - dec_lamports;
         self.set_lamports(new_lamports);
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn assign_direct(&mut self, new_owner: [u8; 32]) {
-        *self.get_byte_slice_mut(Self::OWNER_OFFSET) = new_owner;
+        self.as_raw_mut().owner = new_owner;
     }
 }
 
 /// Account Data
 impl Account<'_> {
-    #[inline]
+    #[inline(always)]
     const fn data_ptr(&self) -> *mut u8 {
-        unsafe { self.0.get().cast::<u8>().add(Self::DATA_OFFSET) }
+        unsafe { self.ptr.as_ptr().cast::<u8>().add(size_of::<AccountRaw>()) }
     }
 
-    /// Returns the maximum data length this account can be reallocated to
-    #[inline]
-    pub fn max_data_len(&self) -> usize {
-        let a = unsafe { &*self.0.get() };
-        // unchecked arithmetic: len should always >= DATA_OFFSET
-        a.len() - Self::DATA_OFFSET
-    }
-
-    #[inline]
+    #[inline(always)]
     pub fn data(&self) -> &[u8] {
         unsafe { core::slice::from_raw_parts(self.data_ptr(), self.data_len()) }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn data_mut(&mut self) -> &mut [u8] {
         unsafe { core::slice::from_raw_parts_mut(self.data_ptr(), self.data_len()) }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn realloc(&mut self, new_len: usize, zero_init: bool) -> Result<(), ProgramError> {
-        if new_len > self.max_data_len() {
+        // account data lengths should always be <= 10MiB < i32::MAX,
+        let curr_len = self.data_len();
+        let [new_len_i32, curr_len_i32] =
+            [new_len, curr_len].map(|usz| usz.try_into().map_err(|_| ProgramError::InvalidRealloc));
+        let new_len_i32: i32 = new_len_i32?;
+        let curr_len_i32: i32 = curr_len_i32?;
+
+        // unchecked-arith: all quantities are in [0, 10MiB],
+        // these subtractions and additions should never overflow
+        let budget_delta = new_len_i32 - curr_len_i32;
+        let new_realloc_budget_used = self.as_raw().realloc_budget_used + budget_delta;
+        if new_realloc_budget_used > MAX_PERMITTED_DATA_INCREASE as i32 {
             return Err(ProgramError::InvalidRealloc);
         }
+        self.as_raw_mut().realloc_budget_used = new_realloc_budget_used;
 
-        let old_len = self.data_len();
-        unsafe {
-            self.realloc_unchecked(new_len);
-        }
-        if zero_init && new_len > old_len {
-            // TODO: see if sol_memset syscall is necessary here,
-            // or if ptr::write_bytes is optimized into that
-            unsafe {
-                core::ptr::write_bytes(self.data_ptr().add(old_len), 0, new_len - old_len);
+        self.as_raw_mut().data_len = new_len as u64;
+        if let Ok(growth) = usize::try_from(budget_delta) {
+            if zero_init {
+                // TODO: see if sol_memset syscall is necessary here,
+                // or if ptr::write_bytes is optimized into that
+                unsafe {
+                    core::ptr::write_bytes(self.data_ptr().add(curr_len), 0, growth);
+                }
             }
         }
         Ok(())
     }
 
-    /// # Safety
-    /// - new_len must be <= account's original len + [`crate::MAX_PERMITTED_DATA_INCREASE`]
-    /// - this method does not zero init the new memory if size grew
-    #[inline]
-    pub unsafe fn realloc_unchecked(&mut self, new_len: usize) {
-        *self.get_byte_slice_mut(Self::DATA_LEN_OFFSET) = (new_len as u64).to_le_bytes();
-    }
-
-    /// # Safety
-    /// - dec must be <= account's original len
-    #[inline]
-    pub unsafe fn shrink_by_unchecked(&mut self, dec_bytes: usize) {
-        let new_len = self.data_len() - dec_bytes;
-        self.realloc_unchecked(new_len);
-    }
-
-    #[inline]
+    #[inline(always)]
     pub fn shrink_by(&mut self, dec_bytes: usize) -> Result<(), ProgramError> {
         match self.data_len().checked_sub(dec_bytes) {
-            Some(new_len) => {
-                unsafe {
-                    self.realloc_unchecked(new_len);
-                }
-                Ok(())
-            }
+            Some(new_len) => self.realloc(new_len, false),
             None => Err(ProgramError::ArithmeticOverflow),
         }
     }
 
-    /// # Safety
-    /// - rules of [`Self::realloc_unchecked`] apply here
-    #[inline]
-    pub unsafe fn grow_by_unchecked(&mut self, inc_bytes: usize) {
-        let new_len = self.data_len() + inc_bytes;
-        self.realloc_unchecked(new_len);
-    }
-
-    #[inline]
+    #[inline(always)]
     pub fn grow_by(&mut self, inc_bytes: usize, zero_init: bool) -> Result<(), ProgramError> {
         match self.data_len().checked_add(inc_bytes) {
             Some(new_len) => self.realloc(new_len, zero_init),
@@ -282,9 +283,9 @@ impl Account<'_> {
 
 /// Pointer equality
 impl PartialEq for Account<'_> {
-    #[inline]
+    #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
-        core::ptr::eq(self.0.get(), other.0.get())
+        core::ptr::eq(self.ptr.as_ptr(), other.ptr.as_ptr())
     }
 }
 
@@ -292,6 +293,8 @@ impl Eq for Account<'_> {}
 
 #[cfg(test)]
 mod tests {
+    use core::mem::MaybeUninit;
+
     use super::*;
 
     #[test]
@@ -299,16 +302,16 @@ mod tests {
         let mut invalid_runtime_buffer = [];
         let (_, invalid_acc) =
             unsafe { Account::non_dup_from_ptr(invalid_runtime_buffer.as_mut_ptr()) };
-        let mut invalid_accounts: Accounts<'_, 1> = Accounts::new();
-        unsafe {
-            invalid_accounts.push_unchecked(invalid_acc);
-        }
+        let mut invalid_accounts: Accounts<'_, 1> = Accounts {
+            accounts: [MaybeUninit::new(invalid_acc)],
+            len: 1,
+        };
 
         let h = unsafe { invalid_accounts.handle_unchecked(0) };
         let _first_immut_borrow = invalid_accounts.get(h);
         let _second_immut_borrow = invalid_accounts.get(h);
         let _third_mut_borrow = invalid_accounts.get_mut(h);
-        //let _fail_immut_borrow_while_mut_borrow = _second_immut_borrow.0; // uncomment to verify lifetime comptime error
+        //let _fail_immut_borrow_while_mut_borrow = _second_immut_borrow; // uncomment to verify lifetime comptime error
         let _fourth_mut_borrow = invalid_accounts.get_mut(h);
         let _fifth_immut_borrow = invalid_accounts.get(h);
     }

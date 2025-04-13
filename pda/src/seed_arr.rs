@@ -80,11 +80,10 @@ impl<'seed, const MAX_SEEDS: usize> PdaSeedArr<'seed, MAX_SEEDS> {
 impl<'seed, const MAX_SEEDS: usize> FromIterator<PdaSeed<'seed>> for PdaSeedArr<'seed, MAX_SEEDS> {
     #[inline]
     fn from_iter<T: IntoIterator<Item = PdaSeed<'seed>>>(iter: T) -> Self {
-        let mut res = Self::new();
-        iter.into_iter().for_each(|seed| {
+        iter.into_iter().fold(Self::new(), |mut res, seed| {
             let _maybe_discarded: Result<(), PdaSeed<'_>> = res.push(seed);
-        });
-        res
+            res
+        })
     }
 }
 

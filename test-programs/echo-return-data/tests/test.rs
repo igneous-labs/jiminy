@@ -21,7 +21,7 @@ use solana_sdk::{
 const PROG_NAME: &str = "echo_return_data";
 const PROG_ID: Pubkey = pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
 
-/// CUs: 590
+/// CUs: 504
 #[test]
 fn entrypoint_basic() {
     let a1_is_exec = false;
