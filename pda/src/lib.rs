@@ -16,9 +16,12 @@ pub const MAX_SEED_LEN: usize = 32;
 /// so max (MAX_SEEDS - 1) non-bump seeds.
 pub const MAX_SEEDS: usize = 16;
 
+// DO NOT #[inline(always)] the 2 PDA functions below.
+// #[inline] results in lower CUs and binary sizes
+
 /// Returns `None` in the statistically unlikely event that
 /// no valid bump seeds were found
-#[inline(always)]
+#[inline]
 pub fn try_find_program_address(
     seeds: &[PdaSeed],
     program_id: &[u8; 32],
@@ -53,7 +56,7 @@ pub fn try_find_program_address(
 }
 
 /// Returns `None` if provided seeds do not result in a valid PDA
-#[inline(always)]
+#[inline]
 pub fn create_program_address(seeds: &[PdaSeed], program_id: &[u8; 32]) -> Option<[u8; 32]> {
     #[cfg(target_os = "solana")]
     {
