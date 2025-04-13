@@ -23,7 +23,7 @@ const PROG_ID: Pubkey = pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
 
 /// CUs: 504
 #[test]
-fn entrypoint_basic() {
+fn entrypoint_basic_cus() {
     let a1_is_exec = false;
     let a1_pk = pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
     let a1 = Account {

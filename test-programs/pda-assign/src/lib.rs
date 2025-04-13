@@ -1,6 +1,6 @@
 #![allow(unexpected_cfgs)]
 
-use jiminy_cpi::{invoke_signed, program_error::ProgramError};
+use jiminy_cpi::{program_error::ProgramError, Cpi};
 use jiminy_pda::{
     create_program_address, try_find_program_address, PdaSeed, PdaSeedArr, PdaSigner,
 };
@@ -47,7 +47,7 @@ fn process_ix(
     }
 
     // assign pda to this prog
-    invoke_signed::<MAX_ACCS, MAX_CPI_ACCS>(
+    Cpi::<MAX_CPI_ACCS>::new().invoke_signed(
         accounts,
         assign_ix(sys_prog, AssignAccounts { assign: pda }, *prog_id).as_instr(),
         &[PdaSigner::new(&seeds)],

@@ -1,9 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 #![allow(unexpected_cfgs)]
 
-//! TODO: turbofish on all invoke_signed_*() calls is currently a bit annoying because
-//! const generics cant be inferred yet.
-//!
 //! All the invocation functions take `&mut Accounts` as param
 //! because we must have exclusive access to accounts since CPI may mutate accounts
 
@@ -55,89 +52,106 @@ pub const MAX_CPI_INSTRUCTION_ACCOUNTS: u8 = u8::MAX;
 /// Copied from agave
 pub const MAX_CPI_ACCOUNT_INFOS: usize = 128;
 
-#[inline]
-pub fn invoke_signed<const MAX_ACCOUNTS: usize, const MAX_CPI_ACCOUNTS: usize>(
-    accounts: &mut Accounts<'_, MAX_ACCOUNTS>,
-    Instr {
-        prog,
-        data,
-        accounts: cpi_accounts,
-    }: Instr<'_, '_>,
-    signers_seeds: &[PdaSigner],
-) -> Result<(), ProgramError> {
-    invoke_signed_accounts_slice::<MAX_ACCOUNTS, MAX_CPI_ACCOUNTS>(
-        accounts,
-        prog,
-        data,
-        cpi_accounts,
-        signers_seeds,
-    )
+/// Max number of CPI accounts for a [`CpiInvocation`]
+/// to fit on the stack.
+///
+/// To invoke CPIs with more accounts, increase the `MAX_CPI_ACCOUNTS`
+/// const generic and create a [`Box<CpiInvocation>`] on the heap
+pub const MAX_CPI_ACCOUNTS_STACK_ONLY: usize = 48;
+
+/// A CPI invocation, contains the [`CpiAccountMeta`] and [`CpiAccount`]
+/// buffers required to pass to the syscall.
+///
+/// Must be instantiated to make a CPI. this allows it to be placed on the heap for
+/// large values of `MAX_CPI_ACCOUNTS`
+#[derive(Debug, Clone)]
+pub struct Cpi<'borrow, const MAX_CPI_ACCOUNTS: usize = MAX_CPI_ACCOUNTS_STACK_ONLY> {
+    metas: [MaybeUninit<CpiAccountMeta<'borrow>>; MAX_CPI_ACCOUNTS],
+    accounts: [MaybeUninit<CpiAccount<'borrow>>; MAX_CPI_ACCOUNTS],
 }
 
-#[inline]
-pub fn invoke_signed_accounts_slice<const MAX_ACCOUNTS: usize, const MAX_CPI_ACCOUNTS: usize>(
-    accounts: &mut Accounts<'_, MAX_ACCOUNTS>,
-    cpi_prog: AccountHandle<'_>,
-    cpi_ix_data: &[u8],
-    cpi_accounts: &[(AccountHandle<'_>, AccountPerms)],
-    signers_seeds: &[PdaSigner],
-) -> Result<(), ProgramError> {
-    invoke_signed_accounts_itr::<_, MAX_ACCOUNTS, MAX_CPI_ACCOUNTS>(
-        accounts,
-        cpi_prog,
-        cpi_ix_data,
-        cpi_accounts.iter().copied(),
-        signers_seeds,
-    )
-}
+impl<const MAX_CPI_ACCOUNTS: usize> Cpi<'_, MAX_CPI_ACCOUNTS> {
+    #[inline(always)]
+    pub const fn new() -> Self {
+        const UNINIT_META: MaybeUninit<CpiAccountMeta> = MaybeUninit::uninit();
+        const UNINIT_ACCOUNT: MaybeUninit<CpiAccount> = MaybeUninit::uninit();
 
-#[inline]
-pub fn invoke_signed_accounts_itr<
-    'account,
-    I,
-    const MAX_ACCOUNTS: usize,
-    const MAX_CPI_ACCOUNTS: usize,
->(
-    accounts: &mut Accounts<'_, MAX_ACCOUNTS>,
-    cpi_prog: AccountHandle<'_>,
-    cpi_ix_data: &[u8],
-    cpi_accounts: I,
-    signers_seeds: &[PdaSigner],
-) -> Result<(), ProgramError>
-where
-    I: IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
-{
-    const UNINIT_META: MaybeUninit<CpiAccountMeta> = MaybeUninit::uninit();
-    const UNINIT_ACCOUNTS: MaybeUninit<CpiAccount> = MaybeUninit::uninit();
-
-    let mut processed_metas = [UNINIT_META; MAX_CPI_ACCOUNTS];
-    let mut processed_accounts = [UNINIT_ACCOUNTS; MAX_CPI_ACCOUNTS];
-    let mut len = 0;
-
-    for (handle, perm) in cpi_accounts {
-        if len >= MAX_CPI_ACCOUNTS {
-            return Err(ProgramError::InvalidArgument);
+        Self {
+            metas: [UNINIT_META; MAX_CPI_ACCOUNTS],
+            accounts: [UNINIT_ACCOUNT; MAX_CPI_ACCOUNTS],
         }
-        let acc = accounts.get(handle);
-        processed_metas[len].write(CpiAccountMeta::new(acc, perm));
-        // we technically dont need to pass duplicate AccountInfos
-        // but making metas correspond 1:1 with accounts just makes it easier.
-        //
-        // We've also unfortunately erased duplicate flag info when
-        // creating the `Accounts` struct.
-        processed_accounts[len].write(CpiAccount::from_account_ref(acc));
-        len += 1;
+    }
+}
+
+impl<const MAX_CPI_ACCOUNTS: usize> Default for Cpi<'_, MAX_CPI_ACCOUNTS> {
+    #[inline(always)]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<'borrow, const MAX_CPI_ACCOUNTS: usize> Cpi<'borrow, MAX_CPI_ACCOUNTS> {
+    // DO NOT #[inline(always)] the invoke_* functions below.
+    // #[inline] results in lower CUs and binary sizes
+
+    #[inline]
+    pub fn invoke_signed<const MAX_ACCOUNTS: usize>(
+        &mut self,
+        accounts: &'borrow mut Accounts<'_, MAX_ACCOUNTS>,
+        Instr {
+            prog,
+            data,
+            accounts: cpi_accounts,
+        }: Instr<'_, '_>,
+        signers_seeds: &[PdaSigner],
+    ) -> Result<(), ProgramError> {
+        self.invoke_signed_accounts_itr(
+            accounts,
+            prog,
+            data,
+            cpi_accounts.iter().copied(),
+            signers_seeds,
+        )
     }
 
-    let prog_id = accounts.get(cpi_prog).key();
+    #[inline]
+    pub fn invoke_signed_accounts_itr<'account, const MAX_ACCOUNTS: usize>(
+        &mut self,
+        accounts: &'borrow mut Accounts<'_, MAX_ACCOUNTS>,
+        cpi_prog: AccountHandle<'_>,
+        cpi_ix_data: &[u8],
+        cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
+        signers_seeds: &[PdaSigner],
+    ) -> Result<(), ProgramError> {
+        let len = cpi_accounts
+            .into_iter()
+            .try_fold(0, |len, (handle, perm)| {
+                if len >= MAX_CPI_ACCOUNTS {
+                    return Err(ProgramError::InvalidArgument);
+                }
+                let acc = accounts.get(handle);
+                // index-safety: bounds checked against MAX_CPI_ACCOUNTS above
+                // write-safety: CpiAccountMeta and CpiAccount are Copy,
+                // dont care about overwriting old data
+                self.metas[len].write(CpiAccountMeta::new(acc, perm));
+                // we technically dont need to pass duplicate AccountInfos
+                // but making metas correspond 1:1 with accounts just makes it easier.
+                //
+                // We've also unfortunately erased duplicate flag info when
+                // creating the `Accounts` struct.
+                self.accounts[len].write(CpiAccount::from_account_ref(acc));
+                Ok(len + 1)
+            })?;
+        let prog_id = accounts.get(cpi_prog).key();
 
-    invoke_signed_raw(
-        prog_id,
-        cpi_ix_data,
-        unsafe { core::slice::from_raw_parts(processed_metas.as_ptr().cast(), len) },
-        unsafe { core::slice::from_raw_parts(processed_accounts.as_ptr().cast(), len) },
-        signers_seeds,
-    )
+        invoke_signed_raw(
+            prog_id,
+            cpi_ix_data,
+            unsafe { core::slice::from_raw_parts(self.metas.as_ptr().cast(), len) },
+            unsafe { core::slice::from_raw_parts(self.accounts.as_ptr().cast(), len) },
+            signers_seeds,
+        )
+    }
 }
 
 #[inline]
@@ -145,7 +159,7 @@ pub fn invoke_signed_raw(
     prog_id: &[u8; 32],
     ix_data: &[u8],
     metas: &[CpiAccountMeta<'_>],
-    accounts: &[CpiAccount<'_, '_>],
+    accounts: &[CpiAccount<'_>],
     signers_seeds: &[PdaSigner],
 ) -> Result<(), ProgramError> {
     #[cfg(target_os = "solana")]

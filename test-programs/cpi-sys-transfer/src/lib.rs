@@ -1,6 +1,6 @@
 #![allow(unexpected_cfgs)]
 
-use jiminy_cpi::invoke_signed;
+use jiminy_cpi::Cpi;
 use jiminy_entrypoint::program_error::ProgramError;
 use jiminy_system_prog_interface::{transfer_ix, TransferAccounts};
 
@@ -39,7 +39,7 @@ fn process_ix(
     let [from_lamports_bef, to_lamports_bef] =
         [from, to].map(|handle| accounts.get(handle).lamports());
 
-    invoke_signed::<MAX_ACCS, MAX_CPI_ACCS>(
+    Cpi::<MAX_CPI_ACCS>::new().invoke_signed(
         accounts,
         transfer_ix(sys_prog, TransferAccounts { from, to }, trf_amt).as_instr(),
         &[],

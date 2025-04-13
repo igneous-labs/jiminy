@@ -7,7 +7,7 @@ use jiminy_account::Account;
 /// This struct has the memory layout as expected by `sol_invoke_signed_c` syscall.
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
-pub struct CpiAccount<'a, 'account> {
+pub struct CpiAccount<'borrow> {
     // Public key of the account.
     key: *const [u8; 32],
 
@@ -37,15 +37,12 @@ pub struct CpiAccount<'a, 'account> {
 
     /// This struct is only valid while the [`Account`] it points to
     /// is borrowed and valid.
-    ///
-    /// The 'a lifetime is impt too because the data self contains might
-    /// be invalidated if another mut reference mutates the underlying Account
-    _account: PhantomData<&'a Account<'account>>,
+    _account: PhantomData<&'borrow Account<'borrow>>,
 }
 
-impl<'a, 'account> CpiAccount<'a, 'account> {
+impl<'borrow> CpiAccount<'borrow> {
     #[inline(always)]
-    pub fn from_account_ref(account: &'a Account<'account>) -> Self {
+    pub fn from_account_ref(account: &'borrow Account<'_>) -> Self {
         Self {
             key: account.key(),
             lamports: account.lamports_ref(),
@@ -61,9 +58,9 @@ impl<'a, 'account> CpiAccount<'a, 'account> {
     }
 }
 
-impl<'a, 'account> From<&'a Account<'account>> for CpiAccount<'a, 'account> {
+impl<'borrow> From<&'borrow Account<'_>> for CpiAccount<'borrow> {
     #[inline(always)]
-    fn from(account: &'a Account<'account>) -> Self {
+    fn from(account: &'borrow Account<'_>) -> Self {
         Self::from_account_ref(account)
     }
 }

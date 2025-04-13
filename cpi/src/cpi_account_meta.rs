@@ -14,21 +14,21 @@ pub struct AccountPerms {
 /// This struct has the memory layout as expected by `sol_invoke_signed_c` syscall.
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
-pub struct CpiAccountMeta<'account> {
+pub struct CpiAccountMeta<'borrow> {
     pubkey: *const [u8; 32],
     is_writable: bool,
     is_signer: bool,
 
     /// This struct is only valid while the [`Account`] it points to
-    /// is valid. Assumes the [`Account`] pubkey will not be mutated
+    /// is borrowed. Assumes the [`Account`] pubkey will not be mutated
     /// (runtime disallows this)
-    _account: PhantomData<Account<'account>>,
+    _account: PhantomData<&'borrow Account<'borrow>>,
 }
 
-impl<'account> CpiAccountMeta<'account> {
+impl<'borrow> CpiAccountMeta<'borrow> {
     #[inline(always)]
     pub fn new(
-        acc: &Account<'account>,
+        acc: &'borrow Account<'_>,
         AccountPerms {
             is_writable,
             is_signer,

@@ -46,7 +46,7 @@ fn expected_account_data(original: usize, r1: usize, r2: usize) -> Vec<u8> {
 
 /// CUs: 127
 #[test]
-fn realloc_basic() {
+fn realloc_basic_cus() {
     let a1 = test_realloc_acc(69);
     let a1_meta = AccountMeta {
         pubkey: TEST_ACC_PK,

@@ -18,7 +18,7 @@ const PROG_ID: Pubkey = pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
 
 /// CUs: 1322
 #[test]
-fn transfer_basic() {
+fn transfer_basic_cus() {
     const TRF_AMT: u64 = 1_000_000_000;
 
     let from_pk = pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
