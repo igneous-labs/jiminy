@@ -53,7 +53,7 @@ macro_rules! program_entrypoint {
         #[no_mangle]
         pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
             const _ASSERT_MAX_WITHIN_RANGE: () = if $maximum > u8::MAX as usize {
-                panic!("max accounts must be < u8::MAX")
+                panic!("max accounts must be <= u8::MAX")
             };
 
             let (mut accounts, instruction_data, program_id) =
@@ -75,9 +75,8 @@ pub unsafe fn deserialize<'prog, const MAX_ACCOUNTS: usize>(
     input: *mut u8,
 ) -> (Accounts<'prog, MAX_ACCOUNTS>, &'prog [u8], &'prog [u8; 32]) {
     let (input, accounts) = deser_accounts(input);
-
-    let ix_data_len_buf: &[u8; 8] = &*input.cast();
-    let ix_data_len = u64::from_le_bytes(*ix_data_len_buf) as usize;
+    // cast-safety: input is 8-byte aligned after deserializing all accounts
+    let ix_data_len = input.cast::<u64>().read() as usize;
 
     let input = input.add(8);
     let ix_data = core::slice::from_raw_parts(input, ix_data_len);

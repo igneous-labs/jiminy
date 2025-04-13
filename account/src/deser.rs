@@ -30,12 +30,23 @@ pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
 ) -> (*mut u8, Accounts<'account, MAX_ACCOUNTS>) {
     const UNINIT: MaybeUninit<Account<'_>> = MaybeUninit::uninit();
 
-    let accounts_len_buf = &*input.cast();
-    let accounts_len = u64::from_le_bytes(*accounts_len_buf) as usize;
+    // cast-safety: 0x40... is 8-byte aligned
+    let accounts_len = input.cast::<u64>().read() as usize;
     let input = input.add(8);
 
     let saved_accounts_len = min(accounts_len, MAX_ACCOUNTS);
     let mut accounts = [UNINIT; MAX_ACCOUNTS];
+
+    // Aside: ive tried everything:
+    // - rewriting fold as for loop
+    // - using mutation instead of reassigning input
+    // - deleting non_dup_from_ptr() and manually inlining it instead
+    // - even the redacted `input: &mut *mut u8`
+    //
+    // but somehow the compiler insists on doing the absolutely trashcan thing of
+    // using 2 registers to store and manipulate input pointer, one for current pointer and
+    // one for `current pointer - 8` for some goddman reason, resulting
+    // in 2 more instructions than pinocchio in the minimal case.
 
     // its probably more functional to have `accounts` as part of the
     // accumulator value but the compiler generates some absolutely
@@ -43,7 +54,7 @@ pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
     // `accounts` in the closure instead.
     //
     // Probably a good rule of thumb is to make sure fold() accumulator values
-    // fit into a single registers for folds(), so only ints and references allowed
+    // fit into a single register, so only ints and references allowed
     let input = (0..saved_accounts_len).fold(input, |input, i| {
         let (new_input, acc) = match input.read() {
             NON_DUP_MARKER => Account::non_dup_from_ptr(input),
