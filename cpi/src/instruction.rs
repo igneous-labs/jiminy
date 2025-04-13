@@ -29,7 +29,7 @@ pub struct Instruction<
 impl<'account, const MAX_DATA_LEN: usize, const MAX_ACCOUNTS_LEN: usize>
     Instruction<'account, MAX_DATA_LEN, MAX_ACCOUNTS_LEN>
 {
-    #[inline]
+    #[inline(always)]
     pub const fn new_empty(prog: AccountHandle<'account>) -> Self {
         const {
             if MAX_DATA_LEN > u16::MAX as usize {
@@ -54,7 +54,7 @@ impl<'account, const MAX_DATA_LEN: usize, const MAX_ACCOUNTS_LEN: usize>
     }
 
     /// Returns `Err(bytes)` if self.data does not have enough capacity
-    #[inline]
+    #[inline(always)]
     pub fn extend_data_from_slice<'a>(&mut self, bytes: &'a [u8]) -> Result<(), &'a [u8]> {
         if bytes.len() > MAX_DATA_LEN - self.data_len() {
             Err(bytes)
@@ -68,7 +68,7 @@ impl<'account, const MAX_DATA_LEN: usize, const MAX_ACCOUNTS_LEN: usize>
 
     /// # Safety
     /// - [`self`] must have enough space left in `self.data` to fit the entire `slice`
-    #[inline]
+    #[inline(always)]
     pub unsafe fn extend_data_from_slice_unchecked(&mut self, bytes: &[u8]) {
         // non-overlapping because &mut self guarantees no one else has access to self.data
         bytes
@@ -80,7 +80,7 @@ impl<'account, const MAX_DATA_LEN: usize, const MAX_ACCOUNTS_LEN: usize>
     }
 
     /// Returns `Err(accounts)` if self.accounts does not have enough capacity
-    #[inline]
+    #[inline(always)]
     pub fn extend_accounts_from_slice<'a>(
         &mut self,
         accounts: &'a [(AccountHandle<'account>, AccountPerms)],
@@ -97,7 +97,7 @@ impl<'account, const MAX_DATA_LEN: usize, const MAX_ACCOUNTS_LEN: usize>
 
     /// # Safety
     /// - [`self`] must have enough space left in `self.accounts` to fit the entire `slice`
-    #[inline]
+    #[inline(always)]
     pub unsafe fn extend_accounts_from_slice_unchecked(
         &mut self,
         accounts: &[(AccountHandle<'account>, AccountPerms)],
@@ -112,7 +112,7 @@ impl<'account, const MAX_DATA_LEN: usize, const MAX_ACCOUNTS_LEN: usize>
     }
 
     /// Returns None if `data.len() > MAX_DATA_LEN` or `accounts.len() > MAX_ACCOUNTS_LEN`
-    #[inline]
+    #[inline(always)]
     pub fn new(
         prog: AccountHandle<'account>,
         data: &[u8],
@@ -127,7 +127,7 @@ impl<'account, const MAX_DATA_LEN: usize, const MAX_ACCOUNTS_LEN: usize>
     /// # Safety
     /// - `data.len() <= MAX_DATA_LEN`
     /// - `accounts.len() <= MAX_ACCOUNTS_LEN`
-    #[inline]
+    #[inline(always)]
     pub unsafe fn new_unchecked(
         prog: AccountHandle<'account>,
         data: &[u8],
@@ -139,69 +139,69 @@ impl<'account, const MAX_DATA_LEN: usize, const MAX_ACCOUNTS_LEN: usize>
         res
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn data_len_u16(&self) -> u16 {
         self.data_len
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn data_len(&self) -> usize {
         self.data_len_u16() as usize
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn is_data_full(&self) -> bool {
         self.data_len() == MAX_DATA_LEN
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn accounts_len_u8(&self) -> u8 {
         self.accounts_len
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn accounts_len(&self) -> usize {
         self.accounts_len_u8() as usize
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn is_accounts_full(&self) -> bool {
         self.accounts_len() == MAX_ACCOUNTS_LEN
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn data(&self) -> &[u8] {
         unsafe { core::slice::from_raw_parts(self.data.as_ptr().cast(), self.data_len()) }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn data_mut(&mut self) -> &mut [u8] {
         unsafe { core::slice::from_raw_parts_mut(self.data.as_mut_ptr().cast(), self.data_len()) }
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn accounts(&self) -> &[(AccountHandle<'account>, AccountPerms)] {
         unsafe { core::slice::from_raw_parts(self.accounts.as_ptr().cast(), self.accounts_len()) }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn accounts_mut(&mut self) -> &mut [(AccountHandle<'account>, AccountPerms)] {
         unsafe {
             core::slice::from_raw_parts_mut(self.accounts.as_mut_ptr().cast(), self.accounts_len())
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn prog(&self) -> AccountHandle<'account> {
         self.prog
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn prog_mut(&mut self) -> &mut AccountHandle<'account> {
         &mut self.prog
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn as_instr(&self) -> Instr<'_, 'account> {
         Instr {
             prog: self.prog,

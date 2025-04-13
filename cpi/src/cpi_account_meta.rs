@@ -26,7 +26,7 @@ pub struct CpiAccountMeta<'account> {
 }
 
 impl<'account> CpiAccountMeta<'account> {
-    #[inline]
+    #[inline(always)]
     pub fn new(
         acc: &Account<'account>,
         AccountPerms {

@@ -12,7 +12,7 @@ macro_rules! default_panic_handler {
     };
 }
 
-#[inline]
+#[inline(always)]
 pub fn log_panic(info: &PanicInfo<'_>) {
     #[cfg(target_os = "solana")]
     {

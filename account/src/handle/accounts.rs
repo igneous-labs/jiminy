@@ -25,19 +25,19 @@ pub struct Accounts<'account, const MAX_ACCOUNTS: usize = MAX_TX_ACCOUNTS> {
 
 /// Accessors
 impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
-    #[inline]
+    #[inline(always)]
     pub const fn len(&self) -> usize {
         self.len
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// # Safety
     /// - idx should be within bounds
-    #[inline]
+    #[inline(always)]
     pub const unsafe fn handle_unchecked(&self, idx: usize) -> AccountHandle<'account> {
         AccountHandle {
             idx,
@@ -45,7 +45,7 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn handle(&self, idx: usize) -> Option<AccountHandle<'account>> {
         if self.len() <= idx {
             None
@@ -54,7 +54,7 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn get(&self, handle: AccountHandle) -> &Account {
         // safety: handle should be a valid handle previously
         // dispensed by `get_handle` or `get_handle_unchecked`
@@ -65,7 +65,7 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     /// duplication markers in the runtime.
     ///
     /// Special runtime-specific account mutators defined below are able to work around this limitation
-    #[inline]
+    #[inline(always)]
     pub fn get_mut<'a>(&'a mut self, handle: AccountHandle) -> &'a mut Account<'account> {
         // safety: handle should be a valid handle previously
         // dispensed by `handle` or `handle_unchecked`
@@ -76,7 +76,7 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn iter<'a>(&'a self) -> AccountsHandleIter<'a, 'account> {
         AccountsHandleIter {
             head: 0,
@@ -92,7 +92,7 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
     /// directly decrementing from's and incrementing to's.
     ///
     /// Does nothing if `from == to`, but still performs the checks
-    #[inline]
+    #[inline(always)]
     pub fn transfer_direct(
         &mut self,
         from: AccountHandle,
@@ -108,7 +108,7 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
     /// # Safety
     /// - rules of [`Account::dec_lamports_unchecked`] apply
     /// - rules of [`Account::inc_lamports_unchecked`] apply
-    #[inline]
+    #[inline(always)]
     pub unsafe fn transfer_direct_unchecked(
         &mut self,
         from: AccountHandle,
@@ -128,7 +128,7 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
     /// Account will still exist with same balance but with
     /// zero sized data and owner = system program
     /// if `close == refund_rent_to`
-    #[inline]
+    #[inline(always)]
     pub fn close(
         &mut self,
         close: AccountHandle,
@@ -143,6 +143,7 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
 }
 
 /// Iterator over an [`Accounts`]' [`AccountHandle`]s
+#[derive(Debug, Clone)]
 pub struct AccountsHandleIter<'a, 'account> {
     head: usize,
     tail: usize,
@@ -153,12 +154,24 @@ pub struct AccountsHandleIter<'a, 'account> {
     _accounts: PhantomData<&'a Account<'account>>,
 }
 
+impl AccountsHandleIter<'_, '_> {
+    #[inline(always)]
+    pub const fn len(&self) -> usize {
+        self.tail - self.head
+    }
+
+    #[inline(always)]
+    pub const fn is_empty(&self) -> bool {
+        self.head == self.tail
+    }
+}
+
 impl<'account> Iterator for AccountsHandleIter<'_, 'account> {
     type Item = AccountHandle<'account>;
 
-    #[inline]
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        if self.head == self.tail {
+        if Self::is_empty(self) {
             None
         } else {
             let res = AccountHandle {
@@ -170,13 +183,12 @@ impl<'account> Iterator for AccountsHandleIter<'_, 'account> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let rem = self.tail - self.head;
-        (rem, Some(rem))
+        (self.len(), Some(self.len()))
     }
 
-    #[inline]
+    #[inline(always)]
     fn fold<B, F>(self, init: B, mut f: F) -> B
     where
         Self: Sized,
@@ -195,9 +207,9 @@ impl<'account> Iterator for AccountsHandleIter<'_, 'account> {
 }
 
 impl DoubleEndedIterator for AccountsHandleIter<'_, '_> {
-    #[inline]
+    #[inline(always)]
     fn next_back(&mut self) -> Option<Self::Item> {
-        if self.head == self.tail {
+        if Self::is_empty(self) {
             None
         } else {
             self.tail -= 1;
@@ -208,7 +220,7 @@ impl DoubleEndedIterator for AccountsHandleIter<'_, '_> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn rfold<B, F>(self, init: B, mut f: F) -> B
     where
         Self: Sized,

@@ -44,7 +44,7 @@ pub struct CpiAccount<'a, 'account> {
 }
 
 impl<'a, 'account> CpiAccount<'a, 'account> {
-    #[inline]
+    #[inline(always)]
     pub fn from_account_ref(account: &'a Account<'account>) -> Self {
         Self {
             key: account.key(),
@@ -62,7 +62,7 @@ impl<'a, 'account> CpiAccount<'a, 'account> {
 }
 
 impl<'a, 'account> From<&'a Account<'account>> for CpiAccount<'a, 'account> {
-    #[inline]
+    #[inline(always)]
     fn from(account: &'a Account<'account>) -> Self {
         Self::from_account_ref(account)
     }

@@ -24,7 +24,7 @@ use crate::{
 ///
 /// # Safety
 /// - `input` must point to start of runtime serialized buffer
-#[inline]
+#[inline(always)]
 pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
     input: *mut u8,
 ) -> (*mut u8, Accounts<'account, MAX_ACCOUNTS>) {
@@ -100,7 +100,7 @@ impl Account<'_> {
     /// # Safety
     /// - ptr must be pointing to the start of a non-duplicate account
     ///   in the runtime serialized buffer
-    #[inline]
+    #[inline(always)]
     pub(crate) unsafe fn non_dup_from_ptr(ptr: *mut u8) -> (*mut u8, Self) {
         let inner: NonNull<AccountRaw> = NonNull::new_unchecked(ptr.cast());
         let total_len = size_of::<AccountRaw>()

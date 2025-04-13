@@ -104,27 +104,27 @@ const _CHECK_ACCOUN_RAW_ALIGN: () = assert!(align_of::<AccountRaw>() == 8);
 
 /// Accessors
 impl Account<'_> {
-    #[inline]
+    #[inline(always)]
     const fn as_raw(&self) -> &AccountRaw {
         unsafe { self.ptr.as_ref() }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn is_signer(&self) -> bool {
         self.as_raw().is_signer != 0
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn is_writable(&self) -> bool {
         self.as_raw().is_writable != 0
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn is_executable(&self) -> bool {
         self.as_raw().is_executable != 0
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn lamports(&self) -> u64 {
         self.as_raw().lamports
     }
@@ -134,27 +134,27 @@ impl Account<'_> {
     /// To read and manipulate lamports, use
     /// [`Self::lamports`] and [`Self::set_lamports`], [`Self::inc_lamports`],
     /// [`Self::dec_lamports`] instead.
-    #[inline]
+    #[inline(always)]
     pub fn lamports_ref(&self) -> &u64 {
         &self.as_raw().lamports
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn data_len_u64(&self) -> u64 {
         self.as_raw().data_len
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn data_len(&self) -> usize {
         self.data_len_u64() as usize
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn key(&self) -> &[u8; 32] {
         &self.as_raw().key
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn owner(&self) -> &[u8; 32] {
         &self.as_raw().owner
     }
@@ -162,17 +162,17 @@ impl Account<'_> {
 
 /// Mutators
 impl Account<'_> {
-    #[inline]
+    #[inline(always)]
     fn as_raw_mut(&mut self) -> &mut AccountRaw {
         unsafe { self.ptr.as_mut() }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn set_lamports(&mut self, new_lamports: u64) {
         self.as_raw_mut().lamports = new_lamports;
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn inc_lamports(&mut self, inc_lamports: u64) -> Result<(), ProgramError> {
         match self.lamports().checked_add(inc_lamports) {
             Some(new_lamports) => {
@@ -185,13 +185,13 @@ impl Account<'_> {
 
     /// # Safety
     /// - increment must not result in overflow
-    #[inline]
+    #[inline(always)]
     pub unsafe fn inc_lamports_unchecked(&mut self, inc_lamports: u64) {
         let new_lamports = self.lamports() + inc_lamports;
         self.set_lamports(new_lamports);
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn dec_lamports(&mut self, dec_lamports: u64) -> Result<(), ProgramError> {
         match self.lamports().checked_sub(dec_lamports) {
             Some(new_lamports) => {
@@ -204,13 +204,13 @@ impl Account<'_> {
 
     /// # Safety
     /// - decrement must not result in overflow
-    #[inline]
+    #[inline(always)]
     pub unsafe fn dec_lamports_unchecked(&mut self, dec_lamports: u64) {
         let new_lamports = self.lamports() - dec_lamports;
         self.set_lamports(new_lamports);
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn assign_direct(&mut self, new_owner: [u8; 32]) {
         self.as_raw_mut().owner = new_owner;
     }
@@ -218,22 +218,22 @@ impl Account<'_> {
 
 /// Account Data
 impl Account<'_> {
-    #[inline]
+    #[inline(always)]
     const fn data_ptr(&self) -> *mut u8 {
         unsafe { self.ptr.as_ptr().cast::<u8>().add(size_of::<AccountRaw>()) }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn data(&self) -> &[u8] {
         unsafe { core::slice::from_raw_parts(self.data_ptr(), self.data_len()) }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn data_mut(&mut self) -> &mut [u8] {
         unsafe { core::slice::from_raw_parts_mut(self.data_ptr(), self.data_len()) }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn realloc(&mut self, new_len: usize, zero_init: bool) -> Result<(), ProgramError> {
         // account data lengths should always be <= 10MiB < i32::MAX,
         let curr_len = self.data_len();
@@ -264,7 +264,7 @@ impl Account<'_> {
         Ok(())
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn shrink_by(&mut self, dec_bytes: usize) -> Result<(), ProgramError> {
         match self.data_len().checked_sub(dec_bytes) {
             Some(new_len) => self.realloc(new_len, false),
@@ -272,7 +272,7 @@ impl Account<'_> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn grow_by(&mut self, inc_bytes: usize, zero_init: bool) -> Result<(), ProgramError> {
         match self.data_len().checked_add(inc_bytes) {
             Some(new_len) => self.realloc(new_len, zero_init),
@@ -283,7 +283,7 @@ impl Account<'_> {
 
 /// Pointer equality
 impl PartialEq for Account<'_> {
-    #[inline]
+    #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
         core::ptr::eq(self.ptr.as_ptr(), other.ptr.as_ptr())
     }
