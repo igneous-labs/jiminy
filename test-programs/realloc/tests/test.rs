@@ -1,4 +1,4 @@
-//! .so file size: 3344
+//! .so file size: 2280
 
 #![cfg(feature = "test-sbf")]
 
@@ -44,7 +44,7 @@ fn expected_account_data(original: usize, r1: usize, r2: usize) -> Vec<u8> {
     res
 }
 
-/// CUs: 127
+/// CUs: 92
 #[test]
 fn realloc_basic_cus() {
     let a1 = test_realloc_acc(69);

@@ -79,16 +79,16 @@ impl Rent {
     pub fn get() -> Result<Self, ProgramError> {
         #[cfg(target_os = "solana")]
         {
-            use core::mem::MaybeUninit;
+            use core::{mem::MaybeUninit, num::NonZeroU64};
 
             // NB: the only reason why the pointer casting here works is because
             // or repr(C) and because
             // the fields of the struct have no padding in-between
             let mut ret: MaybeUninit<Self> = MaybeUninit::uninit();
             let res = unsafe { jiminy_syscall::sol_get_rent_sysvar(ret.as_mut_ptr().cast()) };
-            match res {
-                0 => Ok(unsafe { ret.assume_init() }),
-                e => Err(e.into()),
+            match NonZeroU64::new(res) {
+                None => Ok(unsafe { ret.assume_init() }),
+                Some(e) => Err(e.into()),
             }
         }
 
@@ -104,7 +104,9 @@ impl Rent {
     #[inline]
     pub fn from_account_data(account_data: &[u8]) -> Result<Self, ProgramError> {
         if account_data.len() != Self::ACCOUNT_SIZE {
-            Err(ProgramError::InvalidAccountData)
+            Err(ProgramError::from_builtin(
+                BuiltInProgramError::InvalidAccountData,
+            ))
         } else {
             Ok(unsafe { Self::from_account_data_unchecked(account_data) })
         }

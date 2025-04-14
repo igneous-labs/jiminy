@@ -1,6 +1,6 @@
 #![allow(unexpected_cfgs)]
 
-use jiminy_cpi::Cpi;
+use jiminy_cpi::{program_error::BuiltInProgramError, Cpi};
 use jiminy_entrypoint::program_error::ProgramError;
 use jiminy_system_prog_interface::{transfer_ix, TransferAccounts};
 
@@ -21,7 +21,7 @@ fn process_ix(
         .get(..8)
         .map_or_else(|| None, |subslice| subslice.try_into().ok())
     else {
-        return Err(ProgramError::Custom(1));
+        return Err(ProgramError::custom(1));
     };
     let trf_amt = u64::from_le_bytes(*trf_amt_bytes);
 
@@ -33,7 +33,9 @@ fn process_ix(
     let mut accounts_itr = accounts.iter();
     let [Some(sys_prog), Some(from), Some(to)] = core::array::from_fn(|_| accounts_itr.next())
     else {
-        return Err(ProgramError::NotEnoughAccountKeys);
+        return Err(ProgramError::from_builtin(
+            BuiltInProgramError::NotEnoughAccountKeys,
+        ));
     };
 
     let [from_lamports_bef, to_lamports_bef] =
@@ -46,10 +48,10 @@ fn process_ix(
     )?;
 
     if accounts.get(from).lamports() != from_lamports_bef - trf_amt {
-        return Err(ProgramError::Custom(2));
+        return Err(ProgramError::custom(2));
     }
     if accounts.get(to).lamports() != to_lamports_bef + trf_amt {
-        return Err(ProgramError::Custom(3));
+        return Err(ProgramError::custom(3));
     }
 
     Ok(())
