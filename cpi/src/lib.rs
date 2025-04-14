@@ -127,7 +127,9 @@ impl<'borrow, const MAX_CPI_ACCOUNTS: usize> Cpi<'borrow, MAX_CPI_ACCOUNTS> {
             .into_iter()
             .try_fold(0, |len, (handle, perm)| {
                 if len >= MAX_CPI_ACCOUNTS {
-                    return Err(ProgramError::InvalidArgument);
+                    return Err(ProgramError::from_builtin(
+                        BuiltInProgramError::InvalidArgument,
+                    ));
                 }
                 let acc = accounts.get(handle);
                 // index-safety: bounds checked against MAX_CPI_ACCOUNTS above
@@ -199,9 +201,9 @@ pub fn invoke_signed_raw(
                 signers_seeds.len() as u64,
             )
         };
-        match res {
-            0 => Ok(()),
-            res => Err(res.into()),
+        match core::num::NonZeroU64::new(res) {
+            None => Ok(()),
+            Some(err) => Err(err.into()),
         }
     }
 

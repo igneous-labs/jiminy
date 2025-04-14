@@ -40,13 +40,13 @@ fn process_ix(
     set_return_data(&ret);
 
     let Some(ret_data) = get_return_data::<MAX_RETURN_DATA>() else {
-        return Err(ProgramError::Custom(1));
+        return Err(ProgramError::custom(1));
     };
     if ret_data.program_id() != prog_id {
-        return Err(ProgramError::Custom(2));
+        return Err(ProgramError::custom(2));
     }
     if ret_data.data() != ret {
-        return Err(ProgramError::Custom(3));
+        return Err(ProgramError::custom(3));
     }
 
     Ok(())

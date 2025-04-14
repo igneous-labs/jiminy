@@ -184,7 +184,9 @@ impl Account<'_> {
                 self.set_lamports(new_lamports);
                 Ok(())
             }
-            None => Err(ProgramError::ArithmeticOverflow),
+            None => Err(ProgramError::from_builtin(
+                BuiltInProgramError::ArithmeticOverflow,
+            )),
         }
     }
 
@@ -203,7 +205,9 @@ impl Account<'_> {
                 self.set_lamports(new_lamports);
                 Ok(())
             }
-            None => Err(ProgramError::InsufficientFunds),
+            None => Err(ProgramError::from_builtin(
+                BuiltInProgramError::InsufficientFunds,
+            )),
         }
     }
 
@@ -242,8 +246,10 @@ impl Account<'_> {
     pub fn realloc(&mut self, new_len: usize, zero_init: bool) -> Result<(), ProgramError> {
         // account data lengths should always be <= 10MiB < i32::MAX,
         let curr_len = self.data_len();
-        let [new_len_i32, curr_len_i32] =
-            [new_len, curr_len].map(|usz| usz.try_into().map_err(|_| ProgramError::InvalidRealloc));
+        let [new_len_i32, curr_len_i32] = [new_len, curr_len].map(|usz| {
+            usz.try_into()
+                .map_err(|_| ProgramError::from_builtin(BuiltInProgramError::InvalidRealloc))
+        });
         let new_len_i32: i32 = new_len_i32?;
         let curr_len_i32: i32 = curr_len_i32?;
 
@@ -252,7 +258,9 @@ impl Account<'_> {
         let budget_delta = new_len_i32 - curr_len_i32;
         let new_realloc_budget_used = self.as_raw().realloc_budget_used + budget_delta;
         if new_realloc_budget_used > MAX_PERMITTED_DATA_INCREASE as i32 {
-            return Err(ProgramError::InvalidRealloc);
+            return Err(ProgramError::from_builtin(
+                BuiltInProgramError::InvalidRealloc,
+            ));
         }
         self.as_raw_mut().realloc_budget_used = new_realloc_budget_used;
 
@@ -273,7 +281,9 @@ impl Account<'_> {
     pub fn shrink_by(&mut self, dec_bytes: usize) -> Result<(), ProgramError> {
         match self.data_len().checked_sub(dec_bytes) {
             Some(new_len) => self.realloc(new_len, false),
-            None => Err(ProgramError::ArithmeticOverflow),
+            None => Err(ProgramError::from_builtin(
+                BuiltInProgramError::ArithmeticOverflow,
+            )),
         }
     }
 
@@ -281,7 +291,9 @@ impl Account<'_> {
     pub fn grow_by(&mut self, inc_bytes: usize, zero_init: bool) -> Result<(), ProgramError> {
         match self.data_len().checked_add(inc_bytes) {
             Some(new_len) => self.realloc(new_len, zero_init),
-            None => Err(ProgramError::ArithmeticOverflow),
+            None => Err(ProgramError::from_builtin(
+                BuiltInProgramError::ArithmeticOverflow,
+            )),
         }
     }
 }
