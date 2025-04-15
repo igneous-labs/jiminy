@@ -4,9 +4,9 @@ use core::{cmp::Ordering, ops::Deref};
 
 use bs58::encode::EncodeTarget;
 
-pub type PubkeyStr = Bs58Str<45>;
+pub type PubkeyStr = Bs58Str<44>;
 
-pub type SignatureStr = Bs58Str<89>;
+pub type SignatureStr = Bs58Str<88>;
 
 /// A constant max-size base58-encoded string
 /// for encoding of fixed-size buffers
@@ -21,7 +21,7 @@ pub struct Bs58Str<const MAX_STR_LEN: usize> {
 
 impl<const MAX_STR_LEN: usize> Bs58Str<MAX_STR_LEN> {
     // formula: https://stackoverflow.com/a/59590236/5057425
-    pub const BUF_LEN: usize = { MAX_STR_LEN * 100 / 138 };
+    pub const BUF_LEN: usize = { (MAX_STR_LEN * 100).div_ceil(138) };
 
     // Need to use a const generic with comptime assertion
     // here instead of associated const
@@ -29,9 +29,7 @@ impl<const MAX_STR_LEN: usize> Bs58Str<MAX_STR_LEN> {
     #[inline]
     pub fn of<const BUF_LEN: usize>(buf: &[u8; BUF_LEN]) -> Self {
         const {
-            if BUF_LEN != Self::BUF_LEN {
-                panic!("BUF_LEN != Self::BUF_LEN");
-            }
+            assert!(BUF_LEN == Self::BUF_LEN);
         }
 
         let mut res = Self::new();
@@ -48,9 +46,7 @@ impl<const MAX_STR_LEN: usize> Bs58Str<MAX_STR_LEN> {
     #[inline]
     pub fn decode<const BUF_LEN: usize>(&self) -> [u8; BUF_LEN] {
         const {
-            if BUF_LEN != Self::BUF_LEN {
-                panic!("BUF_LEN != Self::BUF_LEN");
-            }
+            assert!(BUF_LEN == Self::BUF_LEN);
         }
 
         let mut res = [0u8; BUF_LEN];
