@@ -59,36 +59,8 @@ impl ProgramError {
     }
 }
 
-impl From<NonZeroU64> for ProgramError {
-    #[inline]
-    fn from(value: NonZeroU64) -> Self {
-        Self(value)
-    }
-}
-
-impl From<BuiltInProgramError> for ProgramError {
-    #[inline]
-    fn from(value: BuiltInProgramError) -> Self {
-        Self::from_builtin(value)
-    }
-}
-
-impl From<ProgramError> for NonZeroU64 {
-    #[inline]
-    fn from(ProgramError(v): ProgramError) -> Self {
-        v
-    }
-}
-
-impl From<ProgramError> for u64 {
-    #[inline]
-    fn from(ProgramError(v): ProgramError) -> Self {
-        v.get()
-    }
-}
-
 impl Display for ProgramError {
-    #[inline]
+    #[inline(always)]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self.try_into_builtin() {
             Ok(builtin) => builtin.fmt(f),
@@ -99,6 +71,43 @@ impl Display for ProgramError {
 
 // TODO: reenable when cargo-build-sbf is upgraded
 // impl core::error::Error for ProgramError {}
+
+impl From<NonZeroU64> for ProgramError {
+    #[inline(always)]
+    fn from(value: NonZeroU64) -> Self {
+        Self(value)
+    }
+}
+
+impl From<BuiltInProgramError> for ProgramError {
+    #[inline(always)]
+    fn from(value: BuiltInProgramError) -> Self {
+        Self::from_builtin(value)
+    }
+}
+
+impl From<ProgramError> for NonZeroU64 {
+    #[inline(always)]
+    fn from(ProgramError(v): ProgramError) -> Self {
+        v
+    }
+}
+
+impl From<ProgramError> for u64 {
+    #[inline(always)]
+    fn from(ProgramError(v): ProgramError) -> Self {
+        v.get()
+    }
+}
+
+impl TryFrom<ProgramError> for BuiltInProgramError {
+    type Error = u32;
+
+    #[inline(always)]
+    fn try_from(value: ProgramError) -> Result<Self, Self::Error> {
+        value.try_into_builtin()
+    }
+}
 
 const fn to_builtin(err: u64) -> NonZeroU64 {
     const BUILTIN_BIT_SHIFT: usize = 32;
@@ -339,7 +348,25 @@ impl BuiltInProgramError {
     pub const fn into_u64(self) -> u64 {
         self.into_nonzero_u64().get()
     }
+
+    #[inline(always)]
+    pub const fn try_from_u64(val: u64) -> Option<Self> {
+        match NonZeroU64::new(val) {
+            Some(n) => Self::try_from_nonzero_u64(n),
+            None => None,
+        }
+    }
 }
+
+impl Display for BuiltInProgramError {
+    #[inline]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("{self:#?}"))
+    }
+}
+
+// TODO: reenable when cargo-build-sbf is upgraded
+// impl core::error::Error for BuiltInProgramError {}
 
 impl From<BuiltInProgramError> for NonZeroU64 {
     #[inline(always)]
@@ -354,13 +381,3 @@ impl From<BuiltInProgramError> for u64 {
         value.into_u64()
     }
 }
-
-impl Display for BuiltInProgramError {
-    #[inline]
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_fmt(format_args!("{self:#?}"))
-    }
-}
-
-// TODO: reenable when cargo-build-sbf is upgraded
-// impl core::error::Error for BuiltInProgramError {}
