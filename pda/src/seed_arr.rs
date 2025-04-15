@@ -9,11 +9,14 @@ use crate::PdaSeed;
 // so redeclare a const here
 const M: usize = crate::MAX_SEEDS;
 
+/// An owned array of [`PdaSeed`]s, representing a single [`crate::PdaSigner`]
 #[derive(Debug, Clone, Copy)]
 pub struct PdaSeedArr<'seed, const MAX_SEEDS: usize = M> {
     seeds: [MaybeUninit<PdaSeed<'seed>>; MAX_SEEDS],
+
     // PDAs can only have max M=16 seeds, but we use usize
-    // here because ebpf only has 32-bit or 64-bit arithmetic
+    // here instead of u8 because ebpf only has 32-bit or 64-bit arithmetic.
+    // 8-byte alignment also means we dont save any space if we use u8 anyway.
     len: usize,
 }
 
@@ -81,7 +84,7 @@ impl<'seed, const MAX_SEEDS: usize> FromIterator<PdaSeed<'seed>> for PdaSeedArr<
         const UNINIT: MaybeUninit<PdaSeed<'_>> = MaybeUninit::uninit();
 
         // probably more functional to have seeds array as part of fold accumulator
-        // but i dont trust the compiler codegen
+        // but i dont trust the compiler codegen after its let me down before
         let mut seeds = [UNINIT; MAX_SEEDS];
         let len = iter
             .into_iter()

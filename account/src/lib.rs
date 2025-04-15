@@ -246,12 +246,11 @@ impl Account<'_> {
     pub fn realloc(&mut self, new_len: usize, zero_init: bool) -> Result<(), ProgramError> {
         // account data lengths should always be <= 10MiB < i32::MAX,
         let curr_len = self.data_len();
-        let [new_len_i32, curr_len_i32] = [new_len, curr_len].map(|usz| {
-            usz.try_into()
-                .map_err(|_| ProgramError::from_builtin(BuiltInProgramError::InvalidRealloc))
-        });
-        let new_len_i32: i32 = new_len_i32?;
-        let curr_len_i32: i32 = curr_len_i32?;
+        let [Ok(new_len_i32), Ok(curr_len_i32)] = [new_len, curr_len].map(i32::try_from) else {
+            return Err(ProgramError::from_builtin(
+                BuiltInProgramError::InvalidRealloc,
+            ));
+        };
 
         // unchecked-arith: all quantities are in [0, 10MiB],
         // these subtractions and additions should never overflow
@@ -262,11 +261,12 @@ impl Account<'_> {
                 BuiltInProgramError::InvalidRealloc,
             ));
         }
-        self.as_raw_mut().realloc_budget_used = new_realloc_budget_used;
 
+        self.as_raw_mut().realloc_budget_used = new_realloc_budget_used;
         self.as_raw_mut().data_len = new_len as u64;
-        if let Ok(growth) = usize::try_from(budget_delta) {
-            if zero_init {
+
+        if zero_init {
+            if let Ok(growth) = usize::try_from(budget_delta) {
                 // TODO: see if sol_memset syscall is necessary here,
                 // or if ptr::write_bytes is optimized into that
                 unsafe {
@@ -274,6 +274,7 @@ impl Account<'_> {
                 }
             }
         }
+
         Ok(())
     }
 
