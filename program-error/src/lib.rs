@@ -9,7 +9,7 @@
 //!   some debuggability since the errors are limited to their numeric codes. Pair this type with
 //!   something else if you need that debuggability.
 
-use core::num::NonZeroU64;
+use core::{fmt::Display, num::NonZeroU64};
 
 /// pub field: Any non-zero u64 is a valid ProgramError
 /// put into r0 on bpf program exit
@@ -22,82 +22,248 @@ use core::num::NonZeroU64;
 pub struct ProgramError(pub NonZeroU64);
 
 impl ProgramError {
-    #[inline]
+    #[inline(always)]
     pub const fn custom(errcode: u32) -> Self {
-        // safety: 0 special-case handled with nonzero value
-        Self(unsafe {
-            NonZeroU64::new_unchecked(match errcode {
-                0 => CUSTOM_ZERO,
-                code => code as u64,
-            })
+        Self(match NonZeroU64::new(errcode as u64) {
+            None => CUSTOM_ZERO,
+            Some(code) => code,
         })
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn from_builtin(err: BuiltInProgramError) -> Self {
         Self(err.into_nonzero_u64())
     }
+
+    /// Returns `Ok(BuiltInProgramError)` if code matched a builtin error,
+    /// else `Err(u32 custom user error code)`
+    #[inline(always)]
+    pub const fn try_into_builtin(self) -> Result<BuiltInProgramError, u32> {
+        match BuiltInProgramError::try_from_nonzero_u64(self.0) {
+            Some(a) => Ok(a),
+            None => Err(match self.0 {
+                CUSTOM_ZERO => 0,
+                // truncating cast: just take lower 32 bits
+                other => other.get() as u32,
+            }),
+        }
+    }
+
+    /// Opposite of [`Self::try_into_builtin`]
+    #[inline(always)]
+    pub const fn try_into_custom(self) -> Result<u32, BuiltInProgramError> {
+        match self.try_into_builtin() {
+            Ok(builtin) => Err(builtin),
+            Err(custom) => Ok(custom),
+        }
+    }
 }
 
+impl Display for ProgramError {
+    #[inline(always)]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self.try_into_builtin() {
+            Ok(builtin) => builtin.fmt(f),
+            Err(custom) => f.write_fmt(format_args!("Custom({custom})")),
+        }
+    }
+}
+
+// TODO: reenable when cargo-build-sbf is upgraded
+// impl core::error::Error for ProgramError {}
+
 impl From<NonZeroU64> for ProgramError {
-    #[inline]
+    #[inline(always)]
     fn from(value: NonZeroU64) -> Self {
         Self(value)
     }
 }
 
 impl From<BuiltInProgramError> for ProgramError {
-    #[inline]
+    #[inline(always)]
     fn from(value: BuiltInProgramError) -> Self {
         Self::from_builtin(value)
     }
 }
 
 impl From<ProgramError> for NonZeroU64 {
-    #[inline]
+    #[inline(always)]
     fn from(ProgramError(v): ProgramError) -> Self {
         v
     }
 }
 
 impl From<ProgramError> for u64 {
-    #[inline]
+    #[inline(always)]
     fn from(ProgramError(v): ProgramError) -> Self {
         v.get()
     }
 }
 
-const fn to_builtin(err: u64) -> u64 {
-    const BUILTIN_BIT_SHIFT: usize = 32;
-    err << BUILTIN_BIT_SHIFT
+impl TryFrom<ProgramError> for BuiltInProgramError {
+    type Error = u32;
+
+    #[inline(always)]
+    fn try_from(value: ProgramError) -> Result<Self, Self::Error> {
+        value.try_into_builtin()
+    }
 }
 
-pub const CUSTOM_ZERO: u64 = to_builtin(1);
-pub const INVALID_ARGUMENT: u64 = to_builtin(2);
-pub const INVALID_INSTRUCTION_DATA: u64 = to_builtin(3);
-pub const INVALID_ACCOUNT_DATA: u64 = to_builtin(4);
-pub const ACCOUNT_DATA_TOO_SMALL: u64 = to_builtin(5);
-pub const INSUFFICIENT_FUNDS: u64 = to_builtin(6);
-pub const INCORRECT_PROGRAM_ID: u64 = to_builtin(7);
-pub const MISSING_REQUIRED_SIGNATURES: u64 = to_builtin(8);
-pub const ACCOUNT_ALREADY_INITIALIZED: u64 = to_builtin(9);
-pub const UNINITIALIZED_ACCOUNT: u64 = to_builtin(10);
-pub const NOT_ENOUGH_ACCOUNT_KEYS: u64 = to_builtin(11);
-pub const ACCOUNT_BORROW_FAILED: u64 = to_builtin(12);
-pub const MAX_SEED_LENGTH_EXCEEDED: u64 = to_builtin(13);
-pub const INVALID_SEEDS: u64 = to_builtin(14);
-pub const BORSH_IO_ERROR: u64 = to_builtin(15);
-pub const ACCOUNT_NOT_RENT_EXEMPT: u64 = to_builtin(16);
-pub const UNSUPPORTED_SYSVAR: u64 = to_builtin(17);
-pub const ILLEGAL_OWNER: u64 = to_builtin(18);
-pub const MAX_ACCOUNTS_DATA_ALLOCATIONS_EXCEEDED: u64 = to_builtin(19);
-pub const INVALID_ACCOUNT_DATA_REALLOC: u64 = to_builtin(20);
-pub const MAX_INSTRUCTION_TRACE_LENGTH_EXCEEDED: u64 = to_builtin(21);
-pub const BUILTIN_PROGRAMS_MUST_CONSUME_COMPUTE_UNITS: u64 = to_builtin(22);
-pub const INVALID_ACCOUNT_OWNER: u64 = to_builtin(23);
-pub const ARITHMETIC_OVERFLOW: u64 = to_builtin(24);
-pub const IMMUTABLE: u64 = to_builtin(25);
-pub const INCORRECT_AUTHORITY: u64 = to_builtin(26);
+const fn to_builtin(err: u64) -> NonZeroU64 {
+    const BUILTIN_BIT_SHIFT: usize = 32;
+    match NonZeroU64::new(err << BUILTIN_BIT_SHIFT) {
+        Some(res) => res,
+        None => panic!("err = 0"),
+    }
+}
+
+/// Example-usage:
+///
+/// ```ignore
+/// seqerr!(
+///     (CUSTOM_ZERO,),
+///     (INVALID_ARGUMENT, InvalidArgument),
+/// );
+/// ```
+///
+/// generates:
+///
+/// ```
+/// pub const CUSTOM_ZERO: NonZeroU64 = to_builtin(1);
+/// pub const INVALID_ARGUMENT: NonZeroU64 = to_builtin(2);
+///
+/// impl BuiltInProgramError {
+///     #[inline(always)]
+///     pub const fn into_nonzero_u64(self) -> NonZeroU64 {
+///         match self {
+///             Self::InvalidArgument => INVALID_ARGUMENT,
+///         }
+///     }
+///
+///     #[inline(always)]
+///     pub const fn try_from_nonzero_u64(val: NonZeroU64) -> Option<Self> {
+///         Some(match val {
+///             INVALID_ARGUMENT => Self::InvalidArgument,
+///             _ => return None,
+///         })
+///     }
+/// }
+/// ```
+macro_rules! seqerr {
+    // recursive-case 1: no matching enum variant
+    (
+        @ctr $ctr:expr;
+        @into { $($into:tt)* };
+        @try_from { $($try_from:tt)* };
+
+        ($name:ident,)
+
+        $(, $($tail:tt)*)?
+    ) => {
+        pub const $name: NonZeroU64 = to_builtin($ctr);
+
+        seqerr!(
+            @ctr ($ctr + 1);
+            @into {$($into)*};
+            @try_from {$($try_from)*};
+            $($($tail)*)?
+        );
+    };
+
+    // recursive-case 2: matching enum variant
+    (
+        @ctr $ctr:expr;
+        @into { $($into:tt)* };
+        @try_from { $($try_from:tt)* };
+
+        ($name:ident, $var:ident)
+
+        $(, $($tail:tt)*)?
+    ) => {
+        pub const $name: NonZeroU64 = to_builtin($ctr);
+
+        seqerr!(
+            @ctr ($ctr + 1);
+            @into {Self::$var => $name, $($into)*};
+            @try_from {$name => Self::$var, $($try_from)*};
+
+            $($($tail)*)?
+        );
+    };
+
+    // base-cases
+    (
+        @ctr $ctr:expr;
+        @into { $($into:tt)* };
+        @try_from { $($try_from:tt)* };
+    ) => {
+        impl BuiltInProgramError {
+            #[inline(always)]
+            pub const fn into_nonzero_u64(self) -> NonZeroU64 {
+                match self {
+                    $($into)*
+                }
+            }
+
+            #[inline(always)]
+            pub const fn try_from_nonzero_u64(val: NonZeroU64) -> Option<Self> {
+                Some(match val {
+                    $($try_from)*
+                    _ => return None,
+                })
+            }
+        }
+    };
+    () => {};
+
+    // start
+    ($($tail:tt)*) => {
+        seqerr!(
+            @ctr 1;
+            @into {};
+            @try_from {};
+            $($tail)*
+        );
+    };
+}
+
+seqerr!(
+    (CUSTOM_ZERO,),
+    (INVALID_ARGUMENT, InvalidArgument),
+    (INVALID_INSTRUCTION_DATA, InvalidInstructionData),
+    (INVALID_ACCOUNT_DATA, InvalidAccountData),
+    (ACCOUNT_DATA_TOO_SMALL, AccountDataTooSmall),
+    (INSUFFICIENT_FUNDS, InsufficientFunds),
+    (INCORRECT_PROGRAM_ID, IncorrectProgramId),
+    (MISSING_REQUIRED_SIGNATURES, MissingRequiredSignature),
+    (ACCOUNT_ALREADY_INITIALIZED, AccountAlreadyInitialized),
+    (UNINITIALIZED_ACCOUNT, UninitializedAccount),
+    (NOT_ENOUGH_ACCOUNT_KEYS, NotEnoughAccountKeys),
+    (ACCOUNT_BORROW_FAILED, AccountBorrowFailed),
+    (MAX_SEED_LENGTH_EXCEEDED, MaxSeedLengthExceeded),
+    (INVALID_SEEDS, InvalidSeeds),
+    (BORSH_IO_ERROR, BorshIoError),
+    (ACCOUNT_NOT_RENT_EXEMPT, AccountNotRentExempt),
+    (UNSUPPORTED_SYSVAR, UnsupportedSysvar),
+    (ILLEGAL_OWNER, IllegalOwner),
+    (
+        MAX_ACCOUNTS_DATA_ALLOCATIONS_EXCEEDED,
+        MaxAccountsDataAllocationsExceeded
+    ),
+    (INVALID_ACCOUNT_DATA_REALLOC, InvalidRealloc),
+    (
+        MAX_INSTRUCTION_TRACE_LENGTH_EXCEEDED,
+        MaxInstructionTraceLengthExceeded
+    ),
+    (
+        BUILTIN_PROGRAMS_MUST_CONSUME_COMPUTE_UNITS,
+        BuiltinProgramsMustConsumeComputeUnits
+    ),
+    (INVALID_ACCOUNT_OWNER, InvalidAccountOwner),
+    (ARITHMETIC_OVERFLOW, ArithmeticOverflow),
+    (IMMUTABLE, Immutable),
+    (INCORRECT_AUTHORITY, IncorrectAuthority),
+);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum BuiltInProgramError {
@@ -178,55 +344,39 @@ pub enum BuiltInProgramError {
 }
 
 impl BuiltInProgramError {
-    #[inline]
+    #[inline(always)]
     pub const fn into_u64(self) -> u64 {
-        match self {
-            Self::InvalidArgument => INVALID_ARGUMENT,
-            Self::InvalidInstructionData => INVALID_INSTRUCTION_DATA,
-            Self::InvalidAccountData => INVALID_ACCOUNT_DATA,
-            Self::AccountDataTooSmall => ACCOUNT_DATA_TOO_SMALL,
-            Self::InsufficientFunds => INSUFFICIENT_FUNDS,
-            Self::IncorrectProgramId => INCORRECT_PROGRAM_ID,
-            Self::MissingRequiredSignature => MISSING_REQUIRED_SIGNATURES,
-            Self::AccountAlreadyInitialized => ACCOUNT_ALREADY_INITIALIZED,
-            Self::UninitializedAccount => UNINITIALIZED_ACCOUNT,
-            Self::NotEnoughAccountKeys => NOT_ENOUGH_ACCOUNT_KEYS,
-            Self::AccountBorrowFailed => ACCOUNT_BORROW_FAILED,
-            Self::MaxSeedLengthExceeded => MAX_SEED_LENGTH_EXCEEDED,
-            Self::InvalidSeeds => INVALID_SEEDS,
-            Self::AccountNotRentExempt => ACCOUNT_NOT_RENT_EXEMPT,
-            Self::BorshIoError => BORSH_IO_ERROR,
-            Self::UnsupportedSysvar => UNSUPPORTED_SYSVAR,
-            Self::IllegalOwner => ILLEGAL_OWNER,
-            Self::MaxAccountsDataAllocationsExceeded => MAX_ACCOUNTS_DATA_ALLOCATIONS_EXCEEDED,
-            Self::InvalidRealloc => INVALID_ACCOUNT_DATA_REALLOC,
-            Self::MaxInstructionTraceLengthExceeded => MAX_INSTRUCTION_TRACE_LENGTH_EXCEEDED,
-            Self::BuiltinProgramsMustConsumeComputeUnits => {
-                BUILTIN_PROGRAMS_MUST_CONSUME_COMPUTE_UNITS
-            }
-            Self::InvalidAccountOwner => INVALID_ACCOUNT_OWNER,
-            Self::ArithmeticOverflow => ARITHMETIC_OVERFLOW,
-            Self::Immutable => IMMUTABLE,
-            Self::IncorrectAuthority => INCORRECT_AUTHORITY,
-        }
+        self.into_nonzero_u64().get()
     }
 
-    #[inline]
-    pub const fn into_nonzero_u64(self) -> NonZeroU64 {
-        // safety: none of the consts are 0
-        unsafe { NonZeroU64::new_unchecked(self.into_u64()) }
+    #[inline(always)]
+    pub const fn try_from_u64(val: u64) -> Option<Self> {
+        match NonZeroU64::new(val) {
+            Some(n) => Self::try_from_nonzero_u64(n),
+            None => None,
+        }
     }
 }
 
-impl From<BuiltInProgramError> for NonZeroU64 {
+impl Display for BuiltInProgramError {
     #[inline]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("{self:#?}"))
+    }
+}
+
+// TODO: reenable when cargo-build-sbf is upgraded
+// impl core::error::Error for BuiltInProgramError {}
+
+impl From<BuiltInProgramError> for NonZeroU64 {
+    #[inline(always)]
     fn from(value: BuiltInProgramError) -> Self {
         value.into_nonzero_u64()
     }
 }
 
 impl From<BuiltInProgramError> for u64 {
-    #[inline]
+    #[inline(always)]
     fn from(value: BuiltInProgramError) -> Self {
         value.into_u64()
     }
