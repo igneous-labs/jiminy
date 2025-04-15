@@ -9,7 +9,10 @@ pub const MAX_RETURN_DATA: usize = 1024;
 /// `MAX_DATA_LEN` must be <= [`crate::MAX_RETURN_DATA`]
 #[derive(Debug, Clone, Copy)]
 pub struct ReturnData<const MAX_DATA_LEN: usize = MAX_RETURN_DATA> {
+    // 1024 fits into a u16 but just using usize here
+    // to avoid potential non ebpf ALU supported operations
     len: usize,
+
     program_id: MaybeUninit<[u8; 32]>,
     buf: [MaybeUninit<u8>; MAX_DATA_LEN],
 }
