@@ -1,4 +1,4 @@
-//! .so file size: 2648
+//! .so file size: 2680
 
 #![cfg(feature = "test-sbf")]
 
@@ -16,7 +16,7 @@ use solana_sdk::{
 const PROG_NAME: &str = "cpi_sys_transfer";
 const PROG_ID: Pubkey = pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
 
-/// CUs: 1321
+/// CUs: 1325
 #[test]
 fn transfer_basic_cus() {
     const TRF_AMT: u64 = 1_000_000_000;

@@ -7,7 +7,7 @@ use jiminy_cpi::{
 use jiminy_pda::{
     create_program_address, try_find_program_address, PdaSeed, PdaSeedArr, PdaSigner,
 };
-use jiminy_system_prog_interface::{assign_ix, AssignAccounts};
+use jiminy_system_prog_interface::{assign_ix, AssignAccs, AssignIxData, ASSIGN_ACCS_LEN};
 
 pub const MAX_ACCS: usize = 2;
 pub const MAX_CPI_ACCS: usize = 2;
@@ -55,10 +55,12 @@ fn process_ix(
         return Err(ProgramError::custom(2));
     }
 
+    // use sys_prog as placeholder to avoid unsafe code
+    let assign_accounts = AssignAccs([sys_prog; ASSIGN_ACCS_LEN]).with_assign(pda);
     // assign pda to this prog
     Cpi::<MAX_CPI_ACCS>::new().invoke_signed(
         accounts,
-        assign_ix(sys_prog, AssignAccounts { assign: pda }, *prog_id).as_instr(),
+        assign_ix(sys_prog, assign_accounts, &AssignIxData::new(prog_id)).as_instr(),
         &[PdaSigner::new(&seeds)],
     )?;
 

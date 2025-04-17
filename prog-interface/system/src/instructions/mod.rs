@@ -1,7 +1,11 @@
 //! TODO: other instructions
+//!
+//! TODO: the `generic_array_struct` structs should be part of core crate
+//! portable across different environments (client-side, wasm etc) instead
 
 mod assign;
 mod create_account;
+mod internal_utils;
 mod transfer;
 
 pub use assign::*;
