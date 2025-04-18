@@ -8,19 +8,26 @@ pub const ASSIGN_IX_DISCM: [u8; 4] = [1, 0, 0, 0];
 #[generic_array_struct(pub)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
-pub struct AssignAccs<T> {
+pub struct AssignIxAccs<T> {
     pub assign: T,
 }
 
-pub type AssignAccounts<'a> = AssignAccs<AccountHandle<'a>>;
-pub type AssignAccsFlag = AssignAccs<bool>;
-pub type AssignAccountPerms = AssignAccs<AccountPerms>;
+impl<T> AssignIxAccs<T> {
+    #[inline]
+    pub const fn memset(val: T) -> Self {
+        Self([val; ASSIGN_IX_ACCS_LEN])
+    }
+}
 
-pub const ASSIGN_IX_IS_SIGNER: AssignAccsFlag = AssignAccs([true]);
+pub type AssignIxAccounts<'a> = AssignIxAccs<AccountHandle<'a>>;
+pub type AssignIxAccsFlag = AssignIxAccs<bool>;
+pub type AssignIxAccountPerms = AssignIxAccs<AccountPerms>;
 
-pub const ASSIGN_IX_IS_WRITABLE: AssignAccsFlag = AssignAccs([true]);
+pub const ASSIGN_IX_IS_SIGNER: AssignIxAccsFlag = AssignIxAccs::memset(true);
 
-pub const ASSIGN_IX_ACCOUNT_PERMS: AssignAccountPerms = AssignAccs(signer_writable_to_perms(
+pub const ASSIGN_IX_IS_WRITABLE: AssignIxAccsFlag = AssignIxAccs::memset(true);
+
+pub const ASSIGN_IX_ACCOUNT_PERMS: AssignIxAccountPerms = AssignIxAccs(signer_writable_to_perms(
     ASSIGN_IX_IS_SIGNER.0,
     ASSIGN_IX_IS_WRITABLE.0,
 ));
@@ -50,9 +57,9 @@ impl AssignIxData {
 #[inline]
 pub fn assign_ix<'account, 'data>(
     system_prog: AccountHandle<'account>,
-    accounts: AssignAccounts<'account>,
+    accounts: AssignIxAccounts<'account>,
     ix_data: &'data AssignIxData,
-) -> Instruction<'account, 'data, ASSIGN_ACCS_LEN> {
+) -> Instruction<'account, 'data, ASSIGN_IX_ACCS_LEN> {
     Instruction {
         prog: system_prog,
         data: ix_data.as_buf(),

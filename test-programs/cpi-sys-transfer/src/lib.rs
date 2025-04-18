@@ -2,7 +2,7 @@
 
 use jiminy_cpi::{program_error::BuiltInProgramError, Cpi};
 use jiminy_entrypoint::program_error::ProgramError;
-use jiminy_system_prog_interface::{transfer_ix, TransferAccs, TransferIxData, TRANSFER_ACCS_LEN};
+use jiminy_system_prog_interface::{transfer_ix, TransferIxAccs, TransferIxData};
 
 pub const MAX_ACCS: usize = 3;
 
@@ -37,9 +37,7 @@ fn process_ix(
         [from, to].map(|handle| accounts.get(handle).lamports());
 
     // use sys_prog as placeholder to avoid unsafe code
-    let transfer_accounts = TransferAccs([sys_prog; TRANSFER_ACCS_LEN])
-        .with_from(from)
-        .with_to(to);
+    let transfer_accounts = TransferIxAccs::memset(sys_prog).with_from(from).with_to(to);
     Cpi::<MAX_CPI_ACCS>::new().invoke_signed(
         accounts,
         transfer_ix(sys_prog, transfer_accounts, &TransferIxData::new(trf_amt)),

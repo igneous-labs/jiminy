@@ -8,24 +8,30 @@ pub const TRANSFER_IX_DISCM: [u8; 4] = [2, 0, 0, 0];
 #[generic_array_struct(pub)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
-pub struct TransferAccs<T> {
+pub struct TransferIxAccs<T> {
     pub from: T,
     pub to: T,
 }
 
-pub type TransferAccounts<'a> = TransferAccs<AccountHandle<'a>>;
-pub type TransferAccsFlag = TransferAccs<bool>;
-pub type TransferAccountPerms = TransferAccs<AccountPerms>;
+impl<T: Copy> TransferIxAccs<T> {
+    #[inline]
+    pub const fn memset(val: T) -> Self {
+        Self([val; TRANSFER_IX_ACCS_LEN])
+    }
+}
 
-pub const TRANSFER_IX_IS_SIGNER: TransferAccsFlag =
-    TransferAccs([false; TRANSFER_ACCS_LEN]).const_with_from(true);
+pub type TransferIxAccounts<'a> = TransferIxAccs<AccountHandle<'a>>;
+pub type TransferIxAccsFlag = TransferIxAccs<bool>;
+pub type TransferIxAccountPerms = TransferIxAccs<AccountPerms>;
 
-pub const TRANSFER_IX_IS_WRITABLE: TransferAccsFlag = TransferAccs([true, true]);
+pub const TRANSFER_IX_IS_SIGNER: TransferIxAccsFlag =
+    TransferIxAccs::memset(false).const_with_from(true);
 
-pub const TRANSFER_IX_ACCOUNT_PERMS: TransferAccountPerms = TransferAccs(signer_writable_to_perms(
-    TRANSFER_IX_IS_SIGNER.0,
-    TRANSFER_IX_IS_WRITABLE.0,
-));
+pub const TRANSFER_IX_IS_WRITABLE: TransferIxAccsFlag = TransferIxAccs::memset(true);
+
+pub const TRANSFER_IX_ACCOUNT_PERMS: TransferIxAccountPerms = TransferIxAccs(
+    signer_writable_to_perms(TRANSFER_IX_IS_SIGNER.0, TRANSFER_IX_IS_WRITABLE.0),
+);
 
 pub const TRANSFER_IX_DATA_LEN: usize = 12;
 
@@ -52,9 +58,9 @@ impl TransferIxData {
 #[inline]
 pub fn transfer_ix<'account, 'data>(
     system_prog: AccountHandle<'account>,
-    accounts: TransferAccounts<'account>,
+    accounts: TransferIxAccounts<'account>,
     ix_data: &'data TransferIxData,
-) -> Instruction<'account, 'data, TRANSFER_ACCS_LEN> {
+) -> Instruction<'account, 'data, TRANSFER_IX_ACCS_LEN> {
     Instruction {
         prog: system_prog,
         data: ix_data.as_buf(),
