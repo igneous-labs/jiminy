@@ -1024,6 +1024,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "generic-array-struct"
+version = "0.3.0-bc"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3313f0db62e8711fcace7bf202025b00efe5ab9c8d35209241b79c877f72ba6f"
+dependencies = [
+ "heck",
+ "quote",
+ "syn 2.0.98",
+]
+
+[[package]]
 name = "gethostname"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1119,6 +1130,12 @@ name = "hashbrown"
 version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
+
+[[package]]
+name = "heck"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "hermit-abi"
@@ -1481,6 +1498,7 @@ version = "0.1.0"
 name = "jiminy-system-prog-interface"
 version = "0.1.0"
 dependencies = [
+ "generic-array-struct",
  "jiminy-cpi",
 ]
 
