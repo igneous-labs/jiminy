@@ -50,17 +50,12 @@ impl AssignIxData {
 #[inline]
 pub fn assign_ix<'account, 'data>(
     system_prog: AccountHandle<'account>,
-    accounts: &'data AssignAccounts<'account>,
+    accounts: AssignAccounts<'account>,
     ix_data: &'data AssignIxData,
-) -> Instruction<'account, 'data> {
+) -> Instruction<'account, 'data, ASSIGN_ACCS_LEN> {
     Instruction {
         prog: system_prog,
         data: ix_data.as_buf(),
-        accounts: accounts
-            .0
-            .as_slice()
-            .iter()
-            .copied()
-            .zip(ASSIGN_IX_ACCOUNT_PERMS.0.as_slice().iter().copied()),
+        accounts: accounts.0.into_iter().zip(ASSIGN_IX_ACCOUNT_PERMS.0),
     }
 }

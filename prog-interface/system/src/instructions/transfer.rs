@@ -52,17 +52,12 @@ impl TransferIxData {
 #[inline]
 pub fn transfer_ix<'account, 'data>(
     system_prog: AccountHandle<'account>,
-    accounts: &'data TransferAccounts<'account>,
+    accounts: TransferAccounts<'account>,
     ix_data: &'data TransferIxData,
-) -> Instruction<'account, 'data> {
+) -> Instruction<'account, 'data, TRANSFER_ACCS_LEN> {
     Instruction {
         prog: system_prog,
         data: ix_data.as_buf(),
-        accounts: accounts
-            .0
-            .as_slice()
-            .iter()
-            .copied()
-            .zip(TRANSFER_IX_ACCOUNT_PERMS.0.as_slice().iter().copied()),
+        accounts: accounts.0.into_iter().zip(TRANSFER_IX_ACCOUNT_PERMS.0),
     }
 }

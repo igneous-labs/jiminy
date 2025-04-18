@@ -42,7 +42,7 @@ fn process_ix(
         .with_to(to);
     Cpi::<MAX_CPI_ACCS>::new().invoke_signed(
         accounts,
-        transfer_ix(sys_prog, &transfer_accounts, &TransferIxData::new(trf_amt)),
+        transfer_ix(sys_prog, transfer_accounts, &TransferIxData::new(trf_amt)),
         &[],
     )?;
 

@@ -63,17 +63,15 @@ impl CreateAccountIxData {
 #[inline]
 pub fn create_account_ix<'account, 'data>(
     system_prog: AccountHandle<'account>,
-    accounts: &'data CreateAccountAccounts<'account>,
+    accounts: CreateAccountAccounts<'account>,
     ix_data: &'data CreateAccountIxData,
-) -> Instruction<'account, 'data> {
+) -> Instruction<'account, 'data, CREATE_ACCOUNT_ACCS_LEN> {
     Instruction {
         prog: system_prog,
         data: ix_data.as_buf(),
         accounts: accounts
             .0
-            .as_slice()
-            .iter()
-            .copied()
-            .zip(CREATE_ACCOUNT_IX_ACCOUNT_PERMS.0.as_slice().iter().copied()),
+            .into_iter()
+            .zip(CREATE_ACCOUNT_IX_ACCOUNT_PERMS.0),
     }
 }
