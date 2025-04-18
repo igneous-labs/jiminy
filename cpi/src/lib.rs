@@ -52,11 +52,11 @@ pub const MAX_CPI_INSTRUCTION_ACCOUNTS: u8 = u8::MAX;
 /// Copied from agave
 pub const MAX_CPI_ACCOUNT_INFOS: usize = 128;
 
-/// Max number of CPI accounts for a [`CpiInvocation`]
+/// Max number of CPI accounts for a [`Cpi`]
 /// to fit on the stack.
 ///
 /// To invoke CPIs with more accounts, increase the `MAX_CPI_ACCOUNTS`
-/// const generic and create a [`Box<CpiInvocation>`] on the heap
+/// const generic and create a [`Box<Cpi>`] on the heap
 pub const MAX_CPI_ACCOUNTS_STACK_ONLY: usize = 48;
 
 /// A CPI invocation, contains the [`CpiAccountMeta`] and [`CpiAccount`]
@@ -91,36 +91,22 @@ impl<const MAX_CPI_ACCOUNTS: usize> Default for Cpi<'_, MAX_CPI_ACCOUNTS> {
 }
 
 impl<'borrow, const MAX_CPI_ACCOUNTS: usize> Cpi<'borrow, MAX_CPI_ACCOUNTS> {
-    // DO NOT #[inline(always)] the invoke_* functions below.
+    // DO NOT #[inline(always)] invoke_signed.
     // #[inline] results in lower CUs and binary sizes
 
     #[inline]
-    pub fn invoke_signed<const MAX_ACCOUNTS: usize>(
+    pub fn invoke_signed<'account, 'data, const MAX_ACCOUNTS: usize>(
         &mut self,
-        accounts: &'borrow mut Accounts<'_, MAX_ACCOUNTS>,
+        accounts: &'borrow mut Accounts<'account, MAX_ACCOUNTS>,
         Instr {
-            prog,
-            data,
+            prog: cpi_prog,
+            data: cpi_ix_data,
             accounts: cpi_accounts,
-        }: Instr<'_, '_>,
-        signers_seeds: &[PdaSigner],
-    ) -> Result<(), ProgramError> {
-        self.invoke_signed_accounts_itr(
-            accounts,
-            prog,
-            data,
-            cpi_accounts.iter().copied(),
-            signers_seeds,
-        )
-    }
-
-    #[inline]
-    pub fn invoke_signed_accounts_itr<'account, const MAX_ACCOUNTS: usize>(
-        &mut self,
-        accounts: &'borrow mut Accounts<'_, MAX_ACCOUNTS>,
-        cpi_prog: AccountHandle<'_>,
-        cpi_ix_data: &[u8],
-        cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
+        }: Instr<
+            'account,
+            'data,
+            impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
+        >,
         signers_seeds: &[PdaSigner],
     ) -> Result<(), ProgramError> {
         let len = cpi_accounts

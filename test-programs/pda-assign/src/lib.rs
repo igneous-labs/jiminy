@@ -60,7 +60,7 @@ fn process_ix(
     // assign pda to this prog
     Cpi::<MAX_CPI_ACCS>::new().invoke_signed(
         accounts,
-        assign_ix(sys_prog, assign_accounts, &AssignIxData::new(prog_id)).as_instr(),
+        assign_ix(sys_prog, &assign_accounts, &AssignIxData::new(prog_id)),
         &[PdaSigner::new(&seeds)],
     )?;
 

@@ -25,11 +25,6 @@ fn process_ix(
     };
     let trf_amt = u64::from_le_bytes(*trf_amt_bytes);
 
-    // what the fuck changing from
-    //
-    // let [sys_prog, from, to] = core::array::from_fn(|i| account_handles[i]);
-    //
-    // to this cut program size in half from 9832 to 4656
     let mut accounts_itr = accounts.iter();
     let [Some(sys_prog), Some(from), Some(to)] = core::array::from_fn(|_| accounts_itr.next())
     else {
@@ -47,7 +42,7 @@ fn process_ix(
         .with_to(to);
     Cpi::<MAX_CPI_ACCS>::new().invoke_signed(
         accounts,
-        transfer_ix(sys_prog, transfer_accounts, &TransferIxData::new(trf_amt)).as_instr(),
+        transfer_ix(sys_prog, &transfer_accounts, &TransferIxData::new(trf_amt)),
         &[],
     )?;
 

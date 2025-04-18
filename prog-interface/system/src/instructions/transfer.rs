@@ -1,10 +1,7 @@
 use generic_array_struct::generic_array_struct;
 use jiminy_cpi::{account::AccountHandle, AccountPerms};
 
-use super::{
-    internal_utils::{signer_writable_to_perms, zip_accounts_perms},
-    Instruction,
-};
+use super::{internal_utils::signer_writable_to_perms, Instruction};
 
 pub const TRANSFER_IX_DISCM: [u8; 4] = [2, 0, 0, 0];
 
@@ -53,16 +50,19 @@ impl TransferIxData {
 }
 
 #[inline]
-pub fn transfer_ix<'account>(
+pub fn transfer_ix<'account, 'data>(
     system_prog: AccountHandle<'account>,
-    accounts: TransferAccounts<'account>,
-    ix_data: &TransferIxData,
-) -> Instruction<'account> {
-    unsafe {
-        Instruction::new_unchecked(
-            system_prog,
-            ix_data.as_buf(),
-            &zip_accounts_perms(accounts.0, TRANSFER_IX_ACCOUNT_PERMS.0),
-        )
+    accounts: &'data TransferAccounts<'account>,
+    ix_data: &'data TransferIxData,
+) -> Instruction<'account, 'data> {
+    Instruction {
+        prog: system_prog,
+        data: ix_data.as_buf(),
+        accounts: accounts
+            .0
+            .as_slice()
+            .iter()
+            .copied()
+            .zip(TRANSFER_IX_ACCOUNT_PERMS.0.as_slice().iter().copied()),
     }
 }

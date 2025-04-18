@@ -1,10 +1,7 @@
 use generic_array_struct::generic_array_struct;
 use jiminy_cpi::{account::AccountHandle, AccountPerms};
 
-use super::{
-    internal_utils::{signer_writable_to_perms, zip_accounts_perms},
-    Instruction,
-};
+use super::{internal_utils::signer_writable_to_perms, Instruction};
 
 pub const CREATE_ACCOUNT_IX_DISCM: [u8; 4] = [0; 4];
 
@@ -64,16 +61,19 @@ impl CreateAccountIxData {
 }
 
 #[inline]
-pub fn create_account_ix<'account>(
+pub fn create_account_ix<'account, 'data>(
     system_prog: AccountHandle<'account>,
-    accounts: CreateAccountAccounts<'account>,
-    ix_data: &CreateAccountIxData,
-) -> Instruction<'account> {
-    unsafe {
-        Instruction::new_unchecked(
-            system_prog,
-            ix_data.as_buf(),
-            &zip_accounts_perms(accounts.0, CREATE_ACCOUNT_IX_ACCOUNT_PERMS.0),
-        )
+    accounts: &'data CreateAccountAccounts<'account>,
+    ix_data: &'data CreateAccountIxData,
+) -> Instruction<'account, 'data> {
+    Instruction {
+        prog: system_prog,
+        data: ix_data.as_buf(),
+        accounts: accounts
+            .0
+            .as_slice()
+            .iter()
+            .copied()
+            .zip(CREATE_ACCOUNT_IX_ACCOUNT_PERMS.0.as_slice().iter().copied()),
     }
 }
