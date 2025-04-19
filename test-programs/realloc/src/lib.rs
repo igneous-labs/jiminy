@@ -23,6 +23,7 @@ fn process_ix(
             BuiltInProgramError::NotEnoughAccountKeys,
         ));
     };
+    drop(accounts_itr);
     let [Some(r1), Some(r2)] = core::array::from_fn(|i| {
         data.get(i * 8..i * 8 + 8)
             .map(|slice| u64::from_le_bytes(*<&[u8; 8]>::try_from(slice).unwrap()) as usize)

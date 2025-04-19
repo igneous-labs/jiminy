@@ -32,6 +32,7 @@ fn process_ix(
             BuiltInProgramError::NotEnoughAccountKeys,
         ));
     };
+    drop(accounts_itr);
 
     let [from_lamports_bef, to_lamports_bef] =
         [from, to].map(|handle| accounts.get(handle).lamports());

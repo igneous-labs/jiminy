@@ -7,11 +7,11 @@
 
 mod accounts;
 
-use core::marker::PhantomData;
+use core::{marker::PhantomData, ptr::NonNull};
 
 pub use accounts::*;
 
-use crate::Account;
+use crate::{Account, AccountPtr};
 
 /// An opaque handle to an [`Account`] owned by an [`Accounts`].
 ///
@@ -20,9 +20,9 @@ use crate::Account;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct AccountHandle<'account> {
-    idx: usize,
+    ptr: NonNull<Account>,
 
     /// Bounding lifetime by [`Account`]'s lifetime ensures
     /// at compile time the underlying [`Account`] data is valid for all usages of this struct
-    _account_lifetime: PhantomData<Account<'account>>,
+    _account_lifetime: PhantomData<AccountPtr<'account>>,
 }

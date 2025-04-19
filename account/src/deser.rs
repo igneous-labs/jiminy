@@ -13,7 +13,7 @@ use core::{
 };
 
 use crate::{
-    Account, AccountRaw, Accounts, BPF_ALIGN_OF_U128, MAX_PERMITTED_DATA_INCREASE, NON_DUP_MARKER,
+    Account, AccountPtr, Accounts, BPF_ALIGN_OF_U128, MAX_PERMITTED_DATA_INCREASE, NON_DUP_MARKER,
 };
 
 /// # Returns
@@ -28,7 +28,7 @@ use crate::{
 pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
     input: *mut u8,
 ) -> (*mut u8, Accounts<'account, MAX_ACCOUNTS>) {
-    const UNINIT: MaybeUninit<Account<'_>> = MaybeUninit::uninit();
+    const UNINIT: MaybeUninit<AccountPtr<'_>> = MaybeUninit::uninit();
 
     // cast-safety: 0x40... is 8-byte aligned
     let accounts_len = input.cast::<u64>().read() as usize;
@@ -56,8 +56,8 @@ pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
     // Probably a good rule of thumb is to make sure fold() accumulator values
     // fit into a single register, so only ints and references allowed
     let input = (0..saved_accounts_len).fold(input, |input, i| {
-        let (new_input, acc) = match input.read() {
-            NON_DUP_MARKER => Account::non_dup_from_ptr(input),
+        let (new_input, acc_ptr) = match input.read() {
+            NON_DUP_MARKER => AccountPtr::non_dup_from_ptr(input),
             dup_idx => {
                 // bitwise copy of pointer
                 //
@@ -68,14 +68,14 @@ pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
             }
         };
         // unchecked index safety: bounds checked by saved_accounts_len above
-        accounts.get_unchecked_mut(i).write(acc);
+        accounts.get_unchecked_mut(i).write(acc_ptr);
         new_input
     });
 
     // some duplicate logic here but this avoid bounds check before pushing
     // into accounts. Results in reduced CUs per account
     let input = (saved_accounts_len..accounts_len).fold(input, |input, _| match input.read() {
-        NON_DUP_MARKER => Account::non_dup_from_ptr(input).0,
+        NON_DUP_MARKER => AccountPtr::non_dup_from_ptr(input).0,
         _dup_idx => input.add(8),
     });
 
@@ -94,7 +94,7 @@ pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
 }
 
 /// Runtime deserialization internals
-impl Account<'_> {
+impl AccountPtr<'_> {
     /// Returns (pointer to start of next account or instruction data if last account, deserialized account)
     ///
     /// # Safety
@@ -102,10 +102,9 @@ impl Account<'_> {
     ///   in the runtime serialized buffer
     #[inline(always)]
     pub(crate) unsafe fn non_dup_from_ptr(ptr: *mut u8) -> (*mut u8, Self) {
-        let inner: NonNull<AccountRaw> = NonNull::new_unchecked(ptr.cast());
-        let total_len = size_of::<AccountRaw>()
-            + inner.as_ref().data_len as usize
-            + MAX_PERMITTED_DATA_INCREASE;
+        let inner: NonNull<Account> = NonNull::new_unchecked(ptr.cast());
+        let total_len =
+            size_of::<Account>() + inner.as_ref().data_len() + MAX_PERMITTED_DATA_INCREASE;
 
         let res = Self {
             ptr: inner,

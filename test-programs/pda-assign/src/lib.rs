@@ -27,6 +27,7 @@ fn process_ix(
             BuiltInProgramError::NotEnoughAccountKeys,
         ));
     };
+    drop(accounts_itr);
     let mut seeds = SeedsItr {
         data_remaining: data,
     }
