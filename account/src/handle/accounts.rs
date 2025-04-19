@@ -80,8 +80,8 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
         unsafe { slice::from_raw_parts(self.accounts.as_ptr().cast(), self.len()) }
     }
 
-    // do not make as_mut_slice() because thats where simultaneous mut borrow UB
-    // might happen from split_at_mut
+    // do not make as_mut_slice() because the array of account pointers
+    // should not be mutable
 }
 
 /// Convenience methods for common operations

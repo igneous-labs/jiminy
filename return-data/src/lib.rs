@@ -42,7 +42,7 @@ impl<const MAX_DATA_LEN: usize> ReturnData<MAX_DATA_LEN> {
 
 #[inline]
 pub fn set_return_data(data: &[u8]) {
-    //#[cfg(target_os = "solana")]
+    #[cfg(target_os = "solana")]
     unsafe {
         jiminy_syscall::sol_set_return_data(data.as_ptr(), data.len() as u64);
     }
