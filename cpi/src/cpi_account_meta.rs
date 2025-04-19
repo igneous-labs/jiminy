@@ -22,13 +22,13 @@ pub struct CpiAccountMeta<'borrow> {
     /// This struct is only valid while the [`Account`] it points to
     /// is borrowed. Assumes the [`Account`] pubkey will not be mutated
     /// (runtime disallows this)
-    _account: PhantomData<&'borrow Account<'borrow>>,
+    _account: PhantomData<&'borrow Account>,
 }
 
 impl<'borrow> CpiAccountMeta<'borrow> {
     #[inline(always)]
     pub fn new(
-        acc: &'borrow Account<'_>,
+        acc: &'borrow Account,
         AccountPerms {
             is_writable,
             is_signer,

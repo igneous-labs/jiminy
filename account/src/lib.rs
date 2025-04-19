@@ -2,9 +2,8 @@
 #![allow(unexpected_cfgs)]
 
 use core::{
-    marker::PhantomData,
     mem::{align_of, size_of},
-    ptr::NonNull,
+    ptr::addr_of,
 };
 
 // Re-exports
@@ -46,25 +45,8 @@ pub const MAX_PERMITTED_DATA_LENGTH: usize = 10 * 1024 * 1024;
 ///
 /// - neither `Clone` nor `Copy`. The only way to access is via `&Self` or `&mut Self` returned
 ///   from a [`crate::Accounts`] dispensed [`crate::AccountHandle`]
-/// - the `'account` lifetime is pretty much synonymous with `'static` since the buffer it points to is valid for the entire
-///   program's execution
-#[derive(Debug)]
-#[repr(transparent)]
-pub struct Account<'account> {
-    ptr: NonNull<AccountRaw>,
-
-    // Need this to remove covariance of NonNull;
-    // all `Accounts` must have the same 'account lifetime.
-    //
-    // TBH I dont fully get it either yet but this thing is like
-    // an UnsafeCell so we should follow UnsafeCell's variance
-    // https://doc.rust-lang.org/nomicon/subtyping.html#variance
-    _phantom: PhantomData<&'account mut AccountRaw>,
-}
-
 #[repr(C)]
-#[derive(Clone, Copy, Default)]
-struct AccountRaw {
+pub struct Account {
     _duplicate_flag: u8,
 
     /// Indicates whether the transaction was signed by this account.
@@ -104,34 +86,29 @@ struct AccountRaw {
     data_len: u64,
 }
 
-const _CHECK_ACCOUNT_RAW_SIZE: () = assert!(size_of::<AccountRaw>() == 88);
-const _CHECK_ACCOUN_RAW_ALIGN: () = assert!(align_of::<AccountRaw>() == 8);
+const _CHECK_ACCOUNT_RAW_SIZE: () = assert!(size_of::<Account>() == 88);
+const _CHECK_ACCOUN_RAW_ALIGN: () = assert!(align_of::<Account>() == 8);
 
 /// Accessors
-impl Account<'_> {
-    #[inline(always)]
-    const fn as_raw(&self) -> &AccountRaw {
-        unsafe { self.ptr.as_ref() }
-    }
-
+impl Account {
     #[inline(always)]
     pub fn is_signer(&self) -> bool {
-        self.as_raw().is_signer != 0
+        self.is_signer != 0
     }
 
     #[inline(always)]
     pub fn is_writable(&self) -> bool {
-        self.as_raw().is_writable != 0
+        self.is_writable != 0
     }
 
     #[inline(always)]
     pub fn is_executable(&self) -> bool {
-        self.as_raw().is_executable != 0
+        self.is_executable != 0
     }
 
     #[inline(always)]
     pub fn lamports(&self) -> u64 {
-        self.as_raw().lamports
+        self.lamports
     }
 
     /// Only used for CPI helpers.
@@ -141,12 +118,12 @@ impl Account<'_> {
     /// [`Self::dec_lamports`] instead.
     #[inline(always)]
     pub fn lamports_ref(&self) -> &u64 {
-        &self.as_raw().lamports
+        &self.lamports
     }
 
     #[inline(always)]
     pub fn data_len_u64(&self) -> u64 {
-        self.as_raw().data_len
+        self.data_len
     }
 
     #[inline(always)]
@@ -156,25 +133,20 @@ impl Account<'_> {
 
     #[inline(always)]
     pub fn key(&self) -> &[u8; 32] {
-        &self.as_raw().key
+        &self.key
     }
 
     #[inline(always)]
     pub fn owner(&self) -> &[u8; 32] {
-        &self.as_raw().owner
+        &self.owner
     }
 }
 
 /// Mutators
-impl Account<'_> {
-    #[inline(always)]
-    fn as_raw_mut(&mut self) -> &mut AccountRaw {
-        unsafe { self.ptr.as_mut() }
-    }
-
+impl Account {
     #[inline(always)]
     pub fn set_lamports(&mut self, new_lamports: u64) {
-        self.as_raw_mut().lamports = new_lamports;
+        self.lamports = new_lamports;
     }
 
     #[inline(always)]
@@ -221,15 +193,16 @@ impl Account<'_> {
 
     #[inline(always)]
     pub fn assign_direct(&mut self, new_owner: [u8; 32]) {
-        self.as_raw_mut().owner = new_owner;
+        self.owner = new_owner;
     }
 }
 
 /// Account Data
-impl Account<'_> {
+impl Account {
     #[inline(always)]
     const fn data_ptr(&self) -> *mut u8 {
-        unsafe { self.ptr.as_ptr().cast::<u8>().add(size_of::<AccountRaw>()) }
+        // data follow immediately after the end of Self
+        unsafe { addr_of!(*self).add(1).cast_mut().cast() }
     }
 
     #[inline(always)]
@@ -255,15 +228,15 @@ impl Account<'_> {
         // unchecked-arith: all quantities are in [0, 10MiB],
         // these subtractions and additions should never overflow
         let budget_delta = new_len_i32 - curr_len_i32;
-        let new_realloc_budget_used = self.as_raw().realloc_budget_used + budget_delta;
+        let new_realloc_budget_used = self.realloc_budget_used + budget_delta;
         if new_realloc_budget_used > MAX_PERMITTED_DATA_INCREASE as i32 {
             return Err(ProgramError::from_builtin(
                 BuiltInProgramError::InvalidRealloc,
             ));
         }
 
-        self.as_raw_mut().realloc_budget_used = new_realloc_budget_used;
-        self.as_raw_mut().data_len = new_len as u64;
+        self.realloc_budget_used = new_realloc_budget_used;
+        self.data_len = new_len as u64;
 
         if zero_init {
             if let Ok(growth) = usize::try_from(budget_delta) {
@@ -299,16 +272,6 @@ impl Account<'_> {
     }
 }
 
-/// Pointer equality
-impl PartialEq for Account<'_> {
-    #[inline(always)]
-    fn eq(&self, other: &Self) -> bool {
-        core::ptr::eq(self.ptr.as_ptr(), other.ptr.as_ptr())
-    }
-}
-
-impl Eq for Account<'_> {}
-
 #[cfg(test)]
 mod tests {
     use core::mem::MaybeUninit;
@@ -319,7 +282,7 @@ mod tests {
     fn comptime_lifetimes_check() {
         let mut invalid_runtime_buffer = [];
         let (_, invalid_acc) =
-            unsafe { Account::non_dup_from_ptr(invalid_runtime_buffer.as_mut_ptr()) };
+            unsafe { AccountHandle::non_dup_from_ptr(invalid_runtime_buffer.as_mut_ptr()) };
         let mut invalid_accounts: Accounts<'_, 1> = Accounts {
             accounts: [MaybeUninit::new(invalid_acc)],
             len: 1,

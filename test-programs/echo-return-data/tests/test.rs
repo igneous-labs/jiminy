@@ -1,4 +1,4 @@
-//! .so file size: 8328
+//! .so file size: 8336
 
 #![cfg(feature = "test-sbf")]
 
@@ -21,7 +21,7 @@ use solana_sdk::{
 const PROG_NAME: &str = "echo_return_data";
 const PROG_ID: Pubkey = pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
 
-/// CUs: 504
+/// CUs: 506
 #[test]
 fn entrypoint_basic_cus() {
     let a1_is_exec = false;

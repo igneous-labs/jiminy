@@ -63,7 +63,8 @@ pub const MAX_CPI_ACCOUNTS_STACK_ONLY: usize = 48;
 /// buffers required to pass to the syscall.
 ///
 /// Must be instantiated to make a CPI. this allows it to be placed on the heap for
-/// large values of `MAX_CPI_ACCOUNTS`
+/// large values of `MAX_CPI_ACCOUNTS`. This also allows the underlying buffers to be
+/// reused for multiple CPIs.
 #[derive(Debug, Clone)]
 pub struct Cpi<'borrow, const MAX_CPI_ACCOUNTS: usize = MAX_CPI_ACCOUNTS_STACK_ONLY> {
     metas: [MaybeUninit<CpiAccountMeta<'borrow>>; MAX_CPI_ACCOUNTS],

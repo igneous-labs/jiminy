@@ -25,13 +25,12 @@ fn process_ix(
     };
     let trf_amt = u64::from_le_bytes(*trf_amt_bytes);
 
-    let mut accounts_itr = accounts.iter();
-    let [Some(sys_prog), Some(from), Some(to)] = core::array::from_fn(|_| accounts_itr.next())
-    else {
+    let [sys_prog, from, to] = accounts.as_slice() else {
         return Err(ProgramError::from_builtin(
             BuiltInProgramError::NotEnoughAccountKeys,
         ));
     };
+    let [sys_prog, from, to] = [sys_prog, from, to].map(|h| *h);
 
     let [from_lamports_bef, to_lamports_bef] =
         [from, to].map(|handle| accounts.get(handle).lamports());

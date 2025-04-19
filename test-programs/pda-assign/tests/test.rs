@@ -1,4 +1,4 @@
-//! .so file size: 13024
+//! .so file size: 12960
 
 #![cfg(feature = "test-sbf")]
 
@@ -17,7 +17,7 @@ use solana_sdk::{
 const PROG_NAME: &str = "pda_assign";
 const PROG_ID: Pubkey = pubkey!("xtjwVYz95ZdAGoGzwP5HFm1mrNMWpB3L4aDMRwbhd6d");
 
-/// CUs: 4542
+/// CUs: 4529
 #[test]
 fn pda_assign_basic_cus() {
     // 2 seeds, one of len 0, other of len 32
@@ -82,7 +82,7 @@ fn pda_assign_basic_cus() {
     assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
 }
 
-/// CUs: 7947
+/// CUs: 7942
 #[test]
 fn pda_assign_max_seeds_cus() {
     // (MAX_SEEDS - 1) seeds

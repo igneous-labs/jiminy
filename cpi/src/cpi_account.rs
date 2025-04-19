@@ -37,12 +37,12 @@ pub struct CpiAccount<'borrow> {
 
     /// This struct is only valid while the [`Account`] it points to
     /// is borrowed and valid.
-    _account: PhantomData<&'borrow Account<'borrow>>,
+    _account: PhantomData<&'borrow Account>,
 }
 
 impl<'borrow> CpiAccount<'borrow> {
     #[inline(always)]
-    pub fn from_account_ref(account: &'borrow Account<'_>) -> Self {
+    pub fn from_account_ref(account: &'borrow Account) -> Self {
         Self {
             key: account.key(),
             lamports: account.lamports_ref(),
@@ -58,9 +58,9 @@ impl<'borrow> CpiAccount<'borrow> {
     }
 }
 
-impl<'borrow> From<&'borrow Account<'_>> for CpiAccount<'borrow> {
+impl<'borrow> From<&'borrow Account> for CpiAccount<'borrow> {
     #[inline(always)]
-    fn from(account: &'borrow Account<'_>) -> Self {
+    fn from(account: &'borrow Account) -> Self {
         Self::from_account_ref(account)
     }
 }

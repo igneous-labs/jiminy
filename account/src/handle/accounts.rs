@@ -1,10 +1,8 @@
-use core::{iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
+use core::{mem::MaybeUninit, slice};
 
 use jiminy_program_error::ProgramError;
 
-use crate::{Account, MAX_TX_ACCOUNTS};
-
-use super::AccountHandle;
+use crate::{Account, AccountHandle, MAX_TX_ACCOUNTS};
 
 // NB: MAX_ACCOUNTS should be able to fit into a u8, but its actually
 // usually more CU efficient to use usize or u32 because ebpf only has
@@ -19,7 +17,7 @@ use super::AccountHandle;
 /// `MAX_TX_ACCOUNTS` is max capacity of accounts, must be <= 255
 #[derive(Debug)]
 pub struct Accounts<'account, const MAX_ACCOUNTS: usize = MAX_TX_ACCOUNTS> {
-    pub(crate) accounts: [MaybeUninit<Account<'account>>; MAX_ACCOUNTS],
+    pub(crate) accounts: [MaybeUninit<AccountHandle<'account>>; MAX_ACCOUNTS],
     pub(crate) len: usize,
 }
 
@@ -36,13 +34,13 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     }
 
     /// # Safety
-    /// - idx should be within bounds
+    /// - idx should be within bounds and point to an initialized AccountHandle
+    ///
+    /// # Panics
+    /// - if idx out of bounds of capacity
     #[inline(always)]
     pub const unsafe fn handle_unchecked(&self, idx: usize) -> AccountHandle<'account> {
-        AccountHandle {
-            idx,
-            _account_lifetime: PhantomData,
-        }
+        self.accounts[idx].assume_init()
     }
 
     #[inline(always)]
@@ -55,35 +53,35 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     }
 
     #[inline(always)]
-    pub fn get(&self, handle: AccountHandle) -> &Account {
+    pub const fn get(&self, handle: AccountHandle) -> &Account {
         // safety: handle should be a valid handle previously
-        // dispensed by `get_handle` or `get_handle_unchecked`
-        unsafe { self.accounts.get_unchecked(handle.idx).assume_init_ref() }
+        // dispensed by `get_handle` or `get_handle_unchecked`,
+        // so it should point to a valid Account
+        unsafe { handle.ptr.as_ref() }
     }
 
     /// Only 1 account in `Self` can be mutated at any time due to the presence of
     /// duplication markers in the runtime.
-    ///
-    /// Special runtime-specific account mutators defined below are able to work around this limitation
     #[inline(always)]
-    pub fn get_mut<'a>(&'a mut self, handle: AccountHandle) -> &'a mut Account<'account> {
+    pub fn get_mut(&mut self, mut handle: AccountHandle) -> &mut Account {
         // safety: handle should be a valid handle previously
-        // dispensed by `handle` or `handle_unchecked`
-        unsafe {
-            self.accounts
-                .get_unchecked_mut(handle.idx)
-                .assume_init_mut()
-        }
+        // dispensed by `handle` or `handle_unchecked`,
+        // so it should point to a valid Account.
+        //
+        // we have exclusive (mut) access to self here,
+        // so its safe to return &mut Account
+        unsafe { handle.ptr.as_mut() }
+    }
+}
+
+/// Iter
+impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
+    pub const fn as_slice(&self) -> &[AccountHandle<'account>] {
+        unsafe { slice::from_raw_parts(self.accounts.as_ptr().cast(), self.len()) }
     }
 
-    #[inline(always)]
-    pub const fn iter<'a>(&'a self) -> AccountsHandleIter<'a, 'account> {
-        AccountsHandleIter {
-            head: 0,
-            tail: self.len(),
-            _accounts: PhantomData,
-        }
-    }
+    // do not make as_mut_slice() because thats where simultaneous mut borrow UB
+    // might happen from split_at_mut
 }
 
 /// Convenience methods for common operations
@@ -141,103 +139,3 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
         self.transfer_direct(close, refund_rent_to, balance)
     }
 }
-
-/// Iterator over an [`Accounts`]' [`AccountHandle`]s
-#[derive(Debug, Clone)]
-pub struct AccountsHandleIter<'a, 'account> {
-    head: usize,
-    tail: usize,
-    /// we don't actually need to hold the `Accounts` ref since we're just returning indexes,
-    /// but we must bound this struct's lifetimes to the ref's lifetimes.
-    ///
-    /// We can also remove the const generic
-    _accounts: PhantomData<&'a Account<'account>>,
-}
-
-impl AccountsHandleIter<'_, '_> {
-    #[inline(always)]
-    pub const fn len(&self) -> usize {
-        self.tail - self.head
-    }
-
-    #[inline(always)]
-    pub const fn is_empty(&self) -> bool {
-        self.head == self.tail
-    }
-}
-
-impl<'account> Iterator for AccountsHandleIter<'_, 'account> {
-    type Item = AccountHandle<'account>;
-
-    #[inline(always)]
-    fn next(&mut self) -> Option<Self::Item> {
-        if Self::is_empty(self) {
-            None
-        } else {
-            let res = AccountHandle {
-                idx: self.head,
-                _account_lifetime: PhantomData,
-            };
-            self.head += 1;
-            Some(res)
-        }
-    }
-
-    #[inline(always)]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.len(), Some(self.len()))
-    }
-
-    #[inline(always)]
-    fn fold<B, F>(self, init: B, mut f: F) -> B
-    where
-        Self: Sized,
-        F: FnMut(B, Self::Item) -> B,
-    {
-        (self.head..self.tail).fold(init, |accum, idx| {
-            f(
-                accum,
-                AccountHandle {
-                    idx,
-                    _account_lifetime: PhantomData,
-                },
-            )
-        })
-    }
-}
-
-impl DoubleEndedIterator for AccountsHandleIter<'_, '_> {
-    #[inline(always)]
-    fn next_back(&mut self) -> Option<Self::Item> {
-        if Self::is_empty(self) {
-            None
-        } else {
-            self.tail -= 1;
-            Some(AccountHandle {
-                idx: self.tail,
-                _account_lifetime: PhantomData,
-            })
-        }
-    }
-
-    #[inline(always)]
-    fn rfold<B, F>(self, init: B, mut f: F) -> B
-    where
-        Self: Sized,
-        F: FnMut(B, Self::Item) -> B,
-    {
-        (self.head..self.tail).rfold(init, |accum, idx| {
-            f(
-                accum,
-                AccountHandle {
-                    idx,
-                    _account_lifetime: PhantomData,
-                },
-            )
-        })
-    }
-}
-
-impl ExactSizeIterator for AccountsHandleIter<'_, '_> {}
-
-impl FusedIterator for AccountsHandleIter<'_, '_> {}
