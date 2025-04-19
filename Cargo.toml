@@ -1,7 +1,5 @@
 [workspace]
 resolver = "2"
-package.version = "0.1.0"
-package.edition = "2021"
 members = [
     "account",
     "bs58-utils",
@@ -17,6 +15,11 @@ members = [
     "test-programs/*",
     "test-utils",
 ]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license-file = "LICENSE"
 
 [workspace.dependencies]
 # runtime deps
