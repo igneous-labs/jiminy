@@ -1,5 +1,5 @@
 [package]
-name = "echo-return-data"
+name = "log-hello-world"
 version = "0.1.0"
 edition.workspace = true
 
@@ -11,8 +11,9 @@ test-sbf = []
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
+jiminy-bs58-utils = { workspace = true }
 jiminy-entrypoint = { workspace = true }
-jiminy-return-data = { workspace = true }
+jiminy-log = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 jiminy-test-utils = { workspace = true }

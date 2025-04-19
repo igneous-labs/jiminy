@@ -1,6 +1,6 @@
 #![cfg_attr(all(not(test), not(feature = "std")), no_std)]
 
-use core::{cmp::Ordering, ops::Deref};
+use core::{cmp::Ordering, fmt::Display, ops::Deref};
 
 use bs58::encode::EncodeTarget;
 
@@ -138,6 +138,13 @@ impl<const MAX_STR_LEN: usize> core::hash::Hash for Bs58Str<MAX_STR_LEN> {
     #[inline]
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.deref().hash(state);
+    }
+}
+
+impl<const MAX_STR_LEN: usize> Display for Bs58Str<MAX_STR_LEN> {
+    #[inline]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(self.as_str())
     }
 }
 

@@ -1,10 +1,13 @@
 [workspace]
 resolver = "2"
+package.version = "0.1.0"
+package.edition = "2021"
 members = [
     "account",
     "bs58-utils",
     "cpi",
     "entrypoint",
+    "log",
     "pda",
     "prog-interface/*",
     "program-error",
@@ -39,6 +42,7 @@ jiminy-account = { path = "./account" }
 jiminy-bs58-utils = { path = "./bs58-utils" }
 jiminy-cpi = { path = "./cpi" }
 jiminy-entrypoint = { path = "./entrypoint" }
+jiminy-log = { path = "./log" }
 jiminy-pda = { path = "./pda" }
 jiminy-program-error = { path = "./program-error" }
 jiminy-return-data = { path = "./return-data" }
