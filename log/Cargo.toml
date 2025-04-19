@@ -1,7 +1,11 @@
 [package]
-name = "jiminy-pda"
+name = "jiminy-log"
 version.workspace = true
 edition.workspace = true
+
+[features]
+default = []
+std = []
 
 [dependencies]
 jiminy-syscall = { workspace = true }

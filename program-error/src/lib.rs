@@ -128,7 +128,7 @@ const fn to_builtin(err: u64) -> NonZeroU64 {
 ///
 /// generates:
 ///
-/// ```
+/// ```ignore
 /// pub const CUSTOM_ZERO: NonZeroU64 = to_builtin(1);
 /// pub const INVALID_ARGUMENT: NonZeroU64 = to_builtin(2);
 ///
@@ -150,27 +150,7 @@ const fn to_builtin(err: u64) -> NonZeroU64 {
 /// }
 /// ```
 macro_rules! seqerr {
-    // recursive-case 1: no matching enum variant
-    (
-        @ctr $ctr:expr;
-        @into { $($into:tt)* };
-        @try_from { $($try_from:tt)* };
-
-        ($name:ident,)
-
-        $(, $($tail:tt)*)?
-    ) => {
-        pub const $name: NonZeroU64 = to_builtin($ctr);
-
-        seqerr!(
-            @ctr ($ctr + 1);
-            @into {$($into)*};
-            @try_from {$($try_from)*};
-            $($($tail)*)?
-        );
-    };
-
-    // recursive-case 2: matching enum variant
+    // recursive-case 1: matching enum variant
     (
         @ctr $ctr:expr;
         @into { $($into:tt)* };
@@ -187,6 +167,26 @@ macro_rules! seqerr {
             @into {Self::$var => $name, $($into)*};
             @try_from {$name => Self::$var, $($try_from)*};
 
+            $($($tail)*)?
+        );
+    };
+
+    // recursive-case 2: no matching enum variant
+    (
+        @ctr $ctr:expr;
+        @into { $($into:tt)* };
+        @try_from { $($try_from:tt)* };
+
+        ($name:ident,)
+
+        $(, $($tail:tt)*)?
+    ) => {
+        pub const $name: NonZeroU64 = to_builtin($ctr);
+
+        seqerr!(
+            @ctr ($ctr + 1);
+            @into {$($into)*};
+            @try_from {$($try_from)*};
             $($($tail)*)?
         );
     };
