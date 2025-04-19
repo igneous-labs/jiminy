@@ -2,9 +2,8 @@
 #![allow(unexpected_cfgs)]
 
 use core::{
-    marker::PhantomData,
     mem::{align_of, size_of},
-    ptr::{addr_of, NonNull},
+    ptr::addr_of,
 };
 
 // Re-exports
@@ -273,35 +272,6 @@ impl Account {
     }
 }
 
-/// # Implementation details
-///
-/// - this is just a thin wrapper around `NonNull<Account>` to introduce the 'account lifetime and invariance
-/// - the `'account` lifetime is pretty much synonymous with `'static` since the buffer it points to is valid for the entire
-///   program's execution
-#[derive(Debug)]
-#[repr(transparent)]
-pub struct AccountPtr<'account> {
-    ptr: NonNull<Account>,
-
-    // Need this to remove covariance of NonNull;
-    // all `Account`s must have the same 'account lifetime.
-    //
-    // TBH I dont fully get it either yet but this thing is like
-    // an UnsafeCell so we should follow UnsafeCell's variance
-    // https://doc.rust-lang.org/nomicon/subtyping.html#variance
-    _phantom: PhantomData<&'account mut Account>,
-}
-
-/// Pointer equality
-impl PartialEq for AccountPtr<'_> {
-    #[inline(always)]
-    fn eq(&self, other: &Self) -> bool {
-        core::ptr::eq(self.ptr.as_ptr(), other.ptr.as_ptr())
-    }
-}
-
-impl Eq for AccountPtr<'_> {}
-
 #[cfg(test)]
 mod tests {
     use core::mem::MaybeUninit;
@@ -312,7 +282,7 @@ mod tests {
     fn comptime_lifetimes_check() {
         let mut invalid_runtime_buffer = [];
         let (_, invalid_acc) =
-            unsafe { AccountPtr::non_dup_from_ptr(invalid_runtime_buffer.as_mut_ptr()) };
+            unsafe { AccountHandle::non_dup_from_ptr(invalid_runtime_buffer.as_mut_ptr()) };
         let mut invalid_accounts: Accounts<'_, 1> = Accounts {
             accounts: [MaybeUninit::new(invalid_acc)],
             len: 1,

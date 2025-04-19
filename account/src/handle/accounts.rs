@@ -1,10 +1,8 @@
-use core::{iter::Map, marker::PhantomData, mem::MaybeUninit, slice};
+use core::{mem::MaybeUninit, slice};
 
 use jiminy_program_error::ProgramError;
 
-use crate::{Account, AccountPtr, MAX_TX_ACCOUNTS};
-
-use super::AccountHandle;
+use crate::{Account, AccountHandle, MAX_TX_ACCOUNTS};
 
 // NB: MAX_ACCOUNTS should be able to fit into a u8, but its actually
 // usually more CU efficient to use usize or u32 because ebpf only has
@@ -19,7 +17,7 @@ use super::AccountHandle;
 /// `MAX_TX_ACCOUNTS` is max capacity of accounts, must be <= 255
 #[derive(Debug)]
 pub struct Accounts<'account, const MAX_ACCOUNTS: usize = MAX_TX_ACCOUNTS> {
-    pub(crate) accounts: [MaybeUninit<AccountPtr<'account>>; MAX_ACCOUNTS],
+    pub(crate) accounts: [MaybeUninit<AccountHandle<'account>>; MAX_ACCOUNTS],
     pub(crate) len: usize,
 }
 
@@ -36,13 +34,13 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     }
 
     /// # Safety
-    /// - idx should be within bounds
+    /// - idx should be within bounds and point to an initialized AccountHandle
+    ///
+    /// # Panics
+    /// - if idx out of bounds of capacity
     #[inline(always)]
     pub const unsafe fn handle_unchecked(&self, idx: usize) -> AccountHandle<'account> {
-        AccountHandle {
-            ptr: self.accounts[idx].assume_init_ref().ptr,
-            _account_lifetime: PhantomData,
-        }
+        self.accounts[idx].assume_init()
     }
 
     #[inline(always)]
@@ -76,27 +74,14 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     }
 }
 
-// Iter
-
+/// Iter
 impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
-    /// Return type
-    /// impls [`DoubleEndedIterator<Item = AccountHandle>`].
-    ///
-    /// `self` is immutably borrowed while returned iterator is in scope.
-    #[inline(always)]
-    pub fn iter<'a>(
-        &'a self,
-    ) -> Map<
-        slice::Iter<'a, MaybeUninit<AccountPtr<'account>>>,
-        impl FnMut(&'a MaybeUninit<AccountPtr<'account>>) -> AccountHandle<'account>,
-    > {
-        unsafe { slice::from_raw_parts(self.accounts.as_ptr(), self.len()) }
-            .iter()
-            .map(|p| AccountHandle {
-                ptr: unsafe { p.assume_init_ref() }.ptr,
-                _account_lifetime: PhantomData,
-            })
+    pub const fn as_slice(&self) -> &[AccountHandle<'account>] {
+        unsafe { slice::from_raw_parts(self.accounts.as_ptr().cast(), self.len()) }
     }
+
+    // do not make as_mut_slice() because thats where simultaneous mut borrow UB
+    // might happen from split_at_mut
 }
 
 /// Convenience methods for common operations

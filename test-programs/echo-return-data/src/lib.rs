@@ -28,7 +28,7 @@ fn process_ix(
     prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
     let mut ret = [0u8; MAX_RETURN_DATA];
-    let mut i = put_accounts(&mut ret, accounts, accounts.iter());
+    let mut i = put_accounts(&mut ret, accounts, accounts.as_slice().iter().copied());
 
     let remaining = MAX_RETURN_DATA - i;
     let data_len_truncated = min(remaining.saturating_sub(32), data.len());

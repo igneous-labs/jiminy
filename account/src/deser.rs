@@ -2,18 +2,14 @@
 //
 // - When working with raw pointers, rust cannot enforce aliasing rules, so it cannot optimize
 //   away redundant reads, so always try to reuse already computed offset data.
-//   E.g. there used to be an Account::dup_from_ptr method for API symmetry with non_dup_from_ptr,
+//   E.g. there used to be an AccountHandle::dup_from_ptr method for API symmetry with non_dup_from_ptr,
 //   but that resulted in a redundant read of the duplicate marker vs if we just used the matched byte directly.
 
-use core::{
-    cmp::min,
-    marker::PhantomData,
-    mem::{size_of, MaybeUninit},
-    ptr::NonNull,
-};
+use core::{cmp::min, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 
 use crate::{
-    Account, AccountPtr, Accounts, BPF_ALIGN_OF_U128, MAX_PERMITTED_DATA_INCREASE, NON_DUP_MARKER,
+    Account, AccountHandle, Accounts, BPF_ALIGN_OF_U128, MAX_PERMITTED_DATA_INCREASE,
+    NON_DUP_MARKER,
 };
 
 /// # Returns
@@ -28,7 +24,7 @@ use crate::{
 pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
     input: *mut u8,
 ) -> (*mut u8, Accounts<'account, MAX_ACCOUNTS>) {
-    const UNINIT: MaybeUninit<AccountPtr<'_>> = MaybeUninit::uninit();
+    const UNINIT: MaybeUninit<AccountHandle<'_>> = MaybeUninit::uninit();
 
     // cast-safety: 0x40... is 8-byte aligned
     let accounts_len = input.cast::<u64>().read() as usize;
@@ -57,13 +53,13 @@ pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
     // fit into a single register, so only ints and references allowed
     let input = (0..saved_accounts_len).fold(input, |input, i| {
         let (new_input, acc_ptr) = match input.read() {
-            NON_DUP_MARKER => AccountPtr::non_dup_from_ptr(input),
+            NON_DUP_MARKER => AccountHandle::non_dup_from_ptr(input),
             dup_idx => {
                 // bitwise copy of pointer
                 //
                 // slice::get_unchecked safety: runtime should always return indices
                 // that we've already deserialized, which is within bounds of accounts
-                let acc = accounts.get_unchecked(dup_idx as usize).assume_init_read();
+                let acc = accounts.get_unchecked(dup_idx as usize).assume_init();
                 (input.add(8), acc)
             }
         };
@@ -75,7 +71,7 @@ pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
     // some duplicate logic here but this avoid bounds check before pushing
     // into accounts. Results in reduced CUs per account
     let input = (saved_accounts_len..accounts_len).fold(input, |input, _| match input.read() {
-        NON_DUP_MARKER => AccountPtr::non_dup_from_ptr(input).0,
+        NON_DUP_MARKER => AccountHandle::non_dup_from_ptr(input).0,
         _dup_idx => input.add(8),
     });
 
@@ -94,7 +90,7 @@ pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
 }
 
 /// Runtime deserialization internals
-impl AccountPtr<'_> {
+impl AccountHandle<'_> {
     /// Returns (pointer to start of next account or instruction data if last account, deserialized account)
     ///
     /// # Safety
@@ -103,8 +99,9 @@ impl AccountPtr<'_> {
     #[inline(always)]
     pub(crate) unsafe fn non_dup_from_ptr(ptr: *mut u8) -> (*mut u8, Self) {
         let inner: NonNull<Account> = NonNull::new_unchecked(ptr.cast());
-        let total_len =
-            size_of::<Account>() + inner.as_ref().data_len() + MAX_PERMITTED_DATA_INCREASE;
+        let total_len = core::mem::size_of::<Account>()
+            + inner.as_ref().data_len()
+            + MAX_PERMITTED_DATA_INCREASE;
 
         let res = Self {
             ptr: inner,
