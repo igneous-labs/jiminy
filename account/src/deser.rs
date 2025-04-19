@@ -52,19 +52,19 @@ pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
     // Probably a good rule of thumb is to make sure fold() accumulator values
     // fit into a single register, so only ints and references allowed
     let input = (0..saved_accounts_len).fold(input, |input, i| {
-        let (new_input, acc_ptr) = match input.read() {
+        let (new_input, acc_handle) = match input.read() {
             NON_DUP_MARKER => AccountHandle::non_dup_from_ptr(input),
             dup_idx => {
                 // bitwise copy of pointer
                 //
                 // slice::get_unchecked safety: runtime should always return indices
                 // that we've already deserialized, which is within bounds of accounts
-                let acc = accounts.get_unchecked(dup_idx as usize).assume_init();
-                (input.add(8), acc)
+                let dup_acc_handle = accounts.get_unchecked(dup_idx as usize).assume_init();
+                (input.add(8), dup_acc_handle)
             }
         };
         // unchecked index safety: bounds checked by saved_accounts_len above
-        accounts.get_unchecked_mut(i).write(acc_ptr);
+        accounts.get_unchecked_mut(i).write(acc_handle);
         new_input
     });
 
