@@ -1,3 +1,5 @@
+//! All functions in here simply no-ops if not called from within the VM
+
 #![cfg_attr(all(not(test), not(feature = "std")), no_std)]
 #![allow(unexpected_cfgs)]
 
@@ -59,7 +61,7 @@ pub fn sol_log(message: &str) {
 
     #[cfg(not(target_os = "solana"))]
     {
-        println!("{message}");
+        core::hint::black_box(message);
     }
 }
 
@@ -85,11 +87,6 @@ pub fn sol_log_cus_remaining() {
         unsafe {
             jiminy_syscall::sol_log_compute_units_();
         }
-    }
-
-    #[cfg(not(target_os = "solana"))]
-    {
-        println!("Not in VM");
     }
 }
 
@@ -130,7 +127,6 @@ pub fn sol_log_slice(data: &[u8]) {
     #[cfg(not(target_os = "solana"))]
     {
         core::hint::black_box(data);
-        println!("Not in VM");
     }
 }
 
@@ -155,6 +151,5 @@ pub fn sol_log_pubkey(pubkey: &[u8; 32]) {
     #[cfg(not(target_os = "solana"))]
     {
         core::hint::black_box(pubkey);
-        println!("Not in VM");
     }
 }
