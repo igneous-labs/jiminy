@@ -98,7 +98,7 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<'_, MAX_CPI_ACCOUNTS> {
     #[inline]
     pub fn invoke_signed<'account, const MAX_ACCOUNTS: usize>(
         &mut self,
-        accounts: &mut Accounts<'_, MAX_ACCOUNTS>,
+        accounts: &mut Accounts<'account, MAX_ACCOUNTS>,
         Instr {
             prog: cpi_prog,
             data: cpi_ix_data,
@@ -114,7 +114,7 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<'_, MAX_CPI_ACCOUNTS> {
                         BuiltInProgramError::InvalidArgument,
                     ));
                 }
-                let acc = accounts.get(handle);
+                let acc = accounts.get_mut(handle);
                 // index-safety: bounds checked against MAX_CPI_ACCOUNTS above
                 // write-safety: CpiAccountMeta and CpiAccount are Copy,
                 // dont care about overwriting old data
@@ -124,7 +124,7 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<'_, MAX_CPI_ACCOUNTS> {
                 //
                 // We've also unfortunately erased duplicate flag info when
                 // creating the `Accounts` struct.
-                self.accounts[len].write(CpiAccount::from_account_ref(acc));
+                self.accounts[len].write(CpiAccount::from_mut_account(acc));
                 Ok(len + 1)
             })?;
         let prog_id = accounts.get(cpi_prog).key();
@@ -177,7 +177,7 @@ pub fn invoke_signed_raw(
         };
         let res = unsafe {
             jiminy_syscall::sol_invoke_signed_c(
-                core::ptr::from_ref(&ix).cast(),
+                core::ptr::addr_of!(ix).cast(),
                 accounts.as_ptr().cast(),
                 accounts.len() as u64,
                 signers_seeds.as_ptr().cast(),
