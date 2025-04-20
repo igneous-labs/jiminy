@@ -53,20 +53,20 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     }
 
     #[inline(always)]
-    pub const fn get(&self, handle: AccountHandle<'account>) -> &Account {
+    pub fn get(&self, handle: AccountHandle<'account>) -> &Account {
         // safety: handle should be a valid handle previously
         // dispensed by `get_handle` or `get_handle_unchecked`,
         // so it should point to a valid Account.
         //
         // since we have reference access to self, nothing else
         // should have &mut access to the account
-        unsafe { handle.ptr.as_ref() }
+        unsafe { &*handle.account.get() }
     }
 
     /// Only 1 account in `Self` can be mutated at any time due to the presence of
     /// duplication markers in the runtime.
     #[inline(always)]
-    pub fn get_mut(&mut self, mut handle: AccountHandle<'account>) -> &mut Account {
+    pub fn get_mut(&mut self, handle: AccountHandle<'account>) -> &mut Account {
         // safety: handle should be a valid handle previously
         // dispensed by `handle` or `handle_unchecked`,
         // so it should point to a valid Account.
@@ -74,7 +74,7 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
         // we have exclusive (mut) access to self here,
         // nothing else has access to the account,
         // so we can return &mut
-        unsafe { handle.ptr.as_mut() }
+        unsafe { &mut *handle.account.get() }
     }
 }
 

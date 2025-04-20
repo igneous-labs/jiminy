@@ -7,7 +7,11 @@
 
 mod accounts;
 
-use core::{hash::Hash, marker::PhantomData, ptr::NonNull};
+use core::{
+    cell::UnsafeCell,
+    cmp::Ordering,
+    hash::{Hash, Hasher},
+};
 
 pub use accounts::*;
 
@@ -32,23 +36,44 @@ use crate::Account;
 ///
 /// # Note on core traits
 ///
-/// `Ord`, `Eq` and `Hash` are derived, meaning they use the operations for [`NonNull`], which is
-/// just comparison of the raw pointer value. This is what we want since
+/// `Ord`, `Eq` and `Hash` use the operations for comparisons of
+/// raw pointer values. This is what we want since
 /// **pointer equality <-> handle refers to the same (maybe duplicated) account**
-#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
 pub struct AccountHandle<'account> {
-    pub(crate) ptr: NonNull<Account>,
+    pub(crate) account: &'account UnsafeCell<Account>,
+}
 
-    /// Need this to remove covariance of NonNull;
-    /// all [`AccountHandle`]s must have the same `'account` lifetime.
-    ///
-    /// This prevents stuff like:
-    /// - user creating a fake [`Account`] on the stack, creating an [`AccountHandle`]
-    ///   to it with a shorter lifetime and then passing it to [`Accounts::get`]
-    ///
-    /// TBH I dont fully get it either yet but this thing is like
-    /// an `UnsafeCell` so we should follow `UnsafeCell`'s variance
-    /// https://doc.rust-lang.org/nomicon/subtyping.html#variance
-    pub(crate) _phantom: PhantomData<&'account mut Account>,
+impl Ord for AccountHandle<'_> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.account.get().cmp(&other.account.get())
+    }
+}
+
+impl PartialOrd for AccountHandle<'_> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for AccountHandle<'_> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        matches!(self.cmp(other), Ordering::Equal)
+    }
+}
+
+impl Eq for AccountHandle<'_> {}
+
+/// Need to hash raw pointer value to maintain
+/// `k1 == k2 -> hash(k1) == hash(k2)`
+/// invariant
+impl Hash for AccountHandle<'_> {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.account.get().hash(state);
+    }
 }
