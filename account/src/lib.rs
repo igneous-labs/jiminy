@@ -144,6 +144,25 @@ impl Account {
 
 /// Mutators
 impl Account {
+    /// Only used for CPI helpers.
+    ///
+    /// To read and manipulate lamports, use
+    /// [`Self::lamports`] and [`Self::set_lamports`], [`Self::inc_lamports`],
+    /// [`Self::dec_lamports`] instead.
+    #[inline(always)]
+    pub fn lamports_ref_mut(&mut self) -> &mut u64 {
+        &mut self.lamports
+    }
+
+    /// Only used for CPI helpers.
+    ///
+    /// To read and manipulate owner, use
+    /// [`Self::owner`] and [`Self::assign_direct`] instead.
+    #[inline(always)]
+    pub fn owner_ref_mut(&mut self) -> &mut [u8; 32] {
+        &mut self.owner
+    }
+
     #[inline(always)]
     pub fn set_lamports(&mut self, new_lamports: u64) {
         self.lamports = new_lamports;

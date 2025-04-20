@@ -1,9 +1,9 @@
-//! Why not just `impl Deref<[Account]>` for [`Accounts`], have entrypoint take an `&mut [Account]` arg,
+//! **Q**: Why not just `impl Deref<[&UnsafeCell<Account>]>` for [`Accounts`], have entrypoint take an `&mut [&UnsafeCell<Account>]` arg,
 //! then work with array indices as handles instead of creating your own handle system?
 //!
-//! - We want to tightly control accesses to underlying [`Account`]s to avoid UB. `slice` is a bit too permissive:
-//!   e.g. [`primitive::slice::split_at_mut`] might give 2 mutable slices where an element in both subslices point to the same
-//!   underlying Account due to solana runtime duplication, resulting in the possibility of simultaneous mutable borrow UB
+//! **A**: We want to tightly control accesses to underlying [`Account`]s to avoid UB. `slice` is a bit too permissive:
+//! e.g. [`primitive::slice::split_at_mut`] might give 2 mutable slices where an element in both subslices point to the same
+//! underlying Account due to solana runtime duplication, resulting in the possibility of simultaneous mutable borrow UB
 
 mod accounts;
 

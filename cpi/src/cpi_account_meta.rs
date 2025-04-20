@@ -15,6 +15,7 @@ pub struct AccountPerms {
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct CpiAccountMeta<'borrow> {
+    /// `*const`, shouldnt ever be modified.
     pubkey: *const [u8; 32],
     is_writable: bool,
     is_signer: bool,
