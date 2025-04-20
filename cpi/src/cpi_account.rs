@@ -40,9 +40,9 @@ pub struct CpiAccount<'borrow> {
     _account: PhantomData<&'borrow Account>,
 }
 
-impl<'borrow> CpiAccount<'borrow> {
+impl CpiAccount<'_> {
     #[inline(always)]
-    pub fn from_account_ref(account: &'borrow Account) -> Self {
+    pub fn from_account_ref(account: &Account) -> Self {
         Self {
             key: account.key(),
             lamports: account.lamports_ref(),
@@ -58,9 +58,9 @@ impl<'borrow> CpiAccount<'borrow> {
     }
 }
 
-impl<'borrow> From<&'borrow Account> for CpiAccount<'borrow> {
+impl From<&Account> for CpiAccount<'_> {
     #[inline(always)]
-    fn from(account: &'borrow Account) -> Self {
+    fn from(account: &Account) -> Self {
         Self::from_account_ref(account)
     }
 }

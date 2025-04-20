@@ -12,6 +12,7 @@ use crate::{
     NON_DUP_MARKER,
 };
 
+// NB: the returned `'account` lifetime is unbound, make sure to bound it asap.
 /// # Returns
 /// `(pointer to start of instruction data, saved deserialized accounts)`.
 ///

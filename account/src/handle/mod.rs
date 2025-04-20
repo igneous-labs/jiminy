@@ -7,7 +7,7 @@
 
 mod accounts;
 
-use core::{marker::PhantomData, ptr::NonNull};
+use core::{hash::Hash, marker::PhantomData, ptr::NonNull};
 
 pub use accounts::*;
 
@@ -21,32 +21,34 @@ use crate::Account;
 /// In general you want to copy this struct out from [`Accounts::as_slice`] instead of
 /// using the returned value directly since that would keep [`Accounts`] borrowed.
 ///
+/// To access the underlying account, you must use this handle with [`Accounts::get`] or
+/// [`Accounts::get_mut`].
+///
 /// # Implementation details
 ///
-/// - this is just a thin wrapper around `NonNull<Account>` to introduce the 'account lifetime and invariance
-/// - the `'account` lifetime is pretty much synonymous with `'static` since the buffer it points to is valid for the entire
-///   program's execution
-#[derive(Debug, Clone, Copy, PartialOrd, Ord)]
+/// - this is just a thin wrapper around `NonNull<Account>` to introduce the `'account` lifetime and invariance
+/// - the `'account` lifetime spans from when the [`Accounts`] struct is deserialized at the start
+///   of the program to when it is dropped on program exit. This is usually `'static`.
+///
+/// # Note on core traits
+///
+/// `Ord`, `Eq` and `Hash` are derived, meaning they use the operations for [`NonNull`], which is
+/// just comparison of the raw pointer value. This is what we want since
+/// **pointer equality <-> handle refers to the same (maybe duplicated) account**
+#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct AccountHandle<'account> {
     pub(crate) ptr: NonNull<Account>,
 
-    // Need this to remove covariance of NonNull;
-    // all `Account`s must have the same 'account lifetime.
-    //
-    // TBH I dont fully get it either yet but this thing is like
-    // an UnsafeCell so we should follow UnsafeCell's variance
-    // https://doc.rust-lang.org/nomicon/subtyping.html#variance
+    /// Need this to remove covariance of NonNull;
+    /// all [`AccountHandle`]s must have the same `'account` lifetime.
+    ///
+    /// This prevents stuff like:
+    /// - user creating a fake [`Account`] on the stack, creating an [`AccountHandle`]
+    ///   to it with a shorter lifetime and then passing it to [`Accounts::get`]
+    ///
+    /// TBH I dont fully get it either yet but this thing is like
+    /// an `UnsafeCell` so we should follow `UnsafeCell`'s variance
+    /// https://doc.rust-lang.org/nomicon/subtyping.html#variance
     pub(crate) _phantom: PhantomData<&'account mut Account>,
 }
-
-/// Pointer equality, tells you if 2 different AccountHandles
-/// point to the same underlying (duplicated) Account.
-impl PartialEq for AccountHandle<'_> {
-    #[inline(always)]
-    fn eq(&self, other: &Self) -> bool {
-        core::ptr::eq(self.ptr.as_ptr(), other.ptr.as_ptr())
-    }
-}
-
-impl Eq for AccountHandle<'_> {}

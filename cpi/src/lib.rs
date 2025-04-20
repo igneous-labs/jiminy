@@ -91,23 +91,19 @@ impl<const MAX_CPI_ACCOUNTS: usize> Default for Cpi<'_, MAX_CPI_ACCOUNTS> {
     }
 }
 
-impl<'borrow, const MAX_CPI_ACCOUNTS: usize> Cpi<'borrow, MAX_CPI_ACCOUNTS> {
+impl<const MAX_CPI_ACCOUNTS: usize> Cpi<'_, MAX_CPI_ACCOUNTS> {
     // DO NOT #[inline(always)] invoke_signed.
     // #[inline] results in lower CUs and binary sizes
 
     #[inline]
-    pub fn invoke_signed<'account, 'data, const MAX_ACCOUNTS: usize>(
+    pub fn invoke_signed<'account, const MAX_ACCOUNTS: usize>(
         &mut self,
-        accounts: &'borrow mut Accounts<'account, MAX_ACCOUNTS>,
+        accounts: &mut Accounts<'_, MAX_ACCOUNTS>,
         Instr {
             prog: cpi_prog,
             data: cpi_ix_data,
             accounts: cpi_accounts,
-        }: Instr<
-            'account,
-            'data,
-            impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
-        >,
+        }: Instr<'_, '_, impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>>,
         signers_seeds: &[PdaSigner],
     ) -> Result<(), ProgramError> {
         let len = cpi_accounts

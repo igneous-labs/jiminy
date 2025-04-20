@@ -25,10 +25,10 @@ pub struct CpiAccountMeta<'borrow> {
     _account: PhantomData<&'borrow Account>,
 }
 
-impl<'borrow> CpiAccountMeta<'borrow> {
+impl CpiAccountMeta<'_> {
     #[inline(always)]
     pub fn new(
-        acc: &'borrow Account,
+        acc: &Account,
         AccountPerms {
             is_writable,
             is_signer,

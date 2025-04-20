@@ -53,23 +53,27 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     }
 
     #[inline(always)]
-    pub const fn get(&self, handle: AccountHandle) -> &Account {
+    pub const fn get(&self, handle: AccountHandle<'account>) -> &Account {
         // safety: handle should be a valid handle previously
         // dispensed by `get_handle` or `get_handle_unchecked`,
-        // so it should point to a valid Account
+        // so it should point to a valid Account.
+        //
+        // since we have reference access to self, nothing else
+        // should have &mut access to the account
         unsafe { handle.ptr.as_ref() }
     }
 
     /// Only 1 account in `Self` can be mutated at any time due to the presence of
     /// duplication markers in the runtime.
     #[inline(always)]
-    pub fn get_mut(&mut self, mut handle: AccountHandle) -> &mut Account {
+    pub fn get_mut(&mut self, mut handle: AccountHandle<'account>) -> &mut Account {
         // safety: handle should be a valid handle previously
         // dispensed by `handle` or `handle_unchecked`,
         // so it should point to a valid Account.
         //
         // we have exclusive (mut) access to self here,
-        // so its safe to return &mut Account
+        // nothing else has access to the account,
+        // so we can return &mut
         unsafe { handle.ptr.as_mut() }
     }
 }
@@ -81,11 +85,11 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     }
 
     // do not make as_mut_slice() because the array of account pointers
-    // should not be mutable
+    // should not be mutable - each should always point to the same Account
 }
 
 /// Convenience methods for common operations
-impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
+impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
     /// Transfers lamports from one account to the other by
     /// directly decrementing from's and incrementing to's.
     ///
@@ -93,8 +97,8 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
     #[inline(always)]
     pub fn transfer_direct(
         &mut self,
-        from: AccountHandle,
-        to: AccountHandle,
+        from: AccountHandle<'account>,
+        to: AccountHandle<'account>,
         lamports: u64,
     ) -> Result<(), ProgramError> {
         self.get_mut(from).dec_lamports(lamports)?;
@@ -109,8 +113,8 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
     #[inline(always)]
     pub unsafe fn transfer_direct_unchecked(
         &mut self,
-        from: AccountHandle,
-        to: AccountHandle,
+        from: AccountHandle<'account>,
+        to: AccountHandle<'account>,
         lamports: u64,
     ) {
         self.get_mut(from).dec_lamports_unchecked(lamports);
@@ -129,8 +133,8 @@ impl<const MAX_ACCOUNTS: usize> Accounts<'_, MAX_ACCOUNTS> {
     #[inline(always)]
     pub fn close(
         &mut self,
-        close: AccountHandle,
-        refund_rent_to: AccountHandle,
+        close: AccountHandle<'account>,
+        refund_rent_to: AccountHandle<'account>,
     ) -> Result<(), ProgramError> {
         let close_acc = self.get_mut(close);
         close_acc.realloc(0, false)?;
