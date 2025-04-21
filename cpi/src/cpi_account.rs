@@ -1,13 +1,11 @@
-use core::marker::PhantomData;
-
-use jiminy_account::{Account, Accounts};
+use jiminy_account::Account;
 
 /// An `Account` for CPI invocations.
 ///
 /// This struct has the memory layout as expected by `sol_invoke_signed_c` syscall.
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
-pub(crate) struct CpiAccount<'borrow> {
+pub(crate) struct CpiAccount {
     /// Public key of the account.
     /// *const, shouldnt ever be modified
     key: *const [u8; 32],
@@ -38,18 +36,11 @@ pub(crate) struct CpiAccount<'borrow> {
 
     // This account's data contains a loaded program (and is now read-only).
     is_executable: bool,
-
-    /// This is tied to the borrow of the entire [`Accounts`] collection,
-    /// not the individual [`Account`]
-    _accounts: PhantomData<&'borrow Account>,
 }
 
-impl<'borrow> CpiAccount<'borrow> {
+impl CpiAccount {
     #[inline(always)]
-    pub(crate) fn from_mut_account<const N: usize>(
-        _accounts: &'borrow Accounts<N>,
-        acc: *mut Account,
-    ) -> Self {
+    pub(crate) fn from_mut_account(acc: *mut Account) -> Self {
         unsafe {
             Self {
                 key: Account::key_ptr(acc),
@@ -61,7 +52,6 @@ impl<'borrow> CpiAccount<'borrow> {
                 is_signer: Account::is_signer_from_ptr(acc),
                 is_writable: Account::is_writable_from_ptr(acc),
                 is_executable: Account::is_executable_from_ptr(acc),
-                _accounts: PhantomData,
             }
         }
     }

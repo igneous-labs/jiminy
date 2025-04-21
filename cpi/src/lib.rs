@@ -67,12 +67,12 @@ pub const MAX_CPI_ACCOUNTS_STACK_ONLY: usize = 48;
 /// large values of `MAX_CPI_ACCOUNTS`. This also allows the underlying buffers to be
 /// reused for multiple CPIs.
 #[derive(Debug, Clone)]
-pub struct Cpi<'borrow, const MAX_CPI_ACCOUNTS: usize = MAX_CPI_ACCOUNTS_STACK_ONLY> {
-    metas: [MaybeUninit<CpiAccountMeta<'borrow>>; MAX_CPI_ACCOUNTS],
-    accounts: [MaybeUninit<CpiAccount<'borrow>>; MAX_CPI_ACCOUNTS],
+pub struct Cpi<const MAX_CPI_ACCOUNTS: usize = MAX_CPI_ACCOUNTS_STACK_ONLY> {
+    metas: [MaybeUninit<CpiAccountMeta>; MAX_CPI_ACCOUNTS],
+    accounts: [MaybeUninit<CpiAccount>; MAX_CPI_ACCOUNTS],
 }
 
-impl<const MAX_CPI_ACCOUNTS: usize> Cpi<'_, MAX_CPI_ACCOUNTS> {
+impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
     #[inline(always)]
     pub const fn new() -> Self {
         const UNINIT_META: MaybeUninit<CpiAccountMeta> = MaybeUninit::uninit();
@@ -85,21 +85,21 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<'_, MAX_CPI_ACCOUNTS> {
     }
 }
 
-impl<const MAX_CPI_ACCOUNTS: usize> Default for Cpi<'_, MAX_CPI_ACCOUNTS> {
+impl<const MAX_CPI_ACCOUNTS: usize> Default for Cpi<MAX_CPI_ACCOUNTS> {
     #[inline(always)]
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'borrow, const MAX_CPI_ACCOUNTS: usize> Cpi<'borrow, MAX_CPI_ACCOUNTS> {
+impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
     // DO NOT #[inline(always)] invoke_signed.
     // #[inline] results in lower CUs and binary sizes
 
     #[inline]
     pub fn invoke_signed<'account, const MAX_ACCOUNTS: usize>(
         &mut self,
-        accounts: &'borrow mut Accounts<'account, MAX_ACCOUNTS>,
+        accounts: &mut Accounts<'account, MAX_ACCOUNTS>,
         Instr {
             prog: cpi_prog,
             data: cpi_ix_data,
@@ -119,13 +119,13 @@ impl<'borrow, const MAX_CPI_ACCOUNTS: usize> Cpi<'borrow, MAX_CPI_ACCOUNTS> {
                 // index-safety: bounds checked against MAX_CPI_ACCOUNTS above
                 // write-safety: CpiAccountMeta and CpiAccount are Copy,
                 // dont care about overwriting old data
-                self.metas[len].write(CpiAccountMeta::new(accounts, acc, perm));
+                self.metas[len].write(CpiAccountMeta::new(acc, perm));
                 // we technically dont need to pass duplicate AccountInfos
                 // but making metas correspond 1:1 with accounts just makes it easier.
                 //
                 // We've also unfortunately erased duplicate flag info when
                 // creating the `Accounts` struct.
-                self.accounts[len].write(CpiAccount::from_mut_account(accounts, acc));
+                self.accounts[len].write(CpiAccount::from_mut_account(acc));
                 Ok(len + 1)
             })?;
         let prog_id = accounts.get(cpi_prog).key();
@@ -149,20 +149,20 @@ impl<'borrow, const MAX_CPI_ACCOUNTS: usize> Cpi<'borrow, MAX_CPI_ACCOUNTS> {
 unsafe fn invoke_signed_raw(
     prog_id: &[u8; 32],
     ix_data: &[u8],
-    metas: &[CpiAccountMeta<'_>],
-    accounts: &[CpiAccount<'_>],
+    metas: &[CpiAccountMeta],
+    accounts: &[CpiAccount],
     signers_seeds: &[PdaSigner],
 ) -> Result<(), ProgramError> {
     #[cfg(target_os = "solana")]
     {
         #[derive(Debug, Clone, Copy)]
         #[repr(C)]
-        struct CpiInstruction<'borrow> {
+        struct CpiInstruction {
             /// Public key of the program.
             program_id: *const [u8; 32],
 
             /// Accounts expected by the program instruction.
-            metas: *const CpiAccountMeta<'borrow>,
+            metas: *const CpiAccountMeta,
 
             /// Number of accounts expected by the program instruction.
             metas_len: u64,
