@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use jiminy_account::Account;
+use jiminy_account::{Account, Accounts};
 
 /// Account permissions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -14,32 +14,32 @@ pub struct AccountPerms {
 /// This struct has the memory layout as expected by `sol_invoke_signed_c` syscall.
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
-pub struct CpiAccountMeta<'borrow> {
+pub(crate) struct CpiAccountMeta<'borrow> {
     /// `*const`, shouldnt ever be modified.
     pubkey: *const [u8; 32],
     is_writable: bool,
     is_signer: bool,
 
-    /// This struct is only valid while the [`Account`] it points to
-    /// is borrowed. Assumes the [`Account`] pubkey will not be mutated
-    /// (runtime disallows this)
-    _account: PhantomData<&'borrow Account>,
+    /// This is tied to the borrow of the entire [`Accounts`] collection,
+    /// not the individual [`Account`]
+    _accounts: PhantomData<&'borrow Account>,
 }
 
-impl CpiAccountMeta<'_> {
+impl<'borrow> CpiAccountMeta<'borrow> {
     #[inline(always)]
-    pub fn new(
-        acc: &Account,
+    pub(crate) fn new<const N: usize>(
+        _accounts: &'borrow Accounts<N>,
+        acc: *mut Account,
         AccountPerms {
             is_writable,
             is_signer,
         }: AccountPerms,
     ) -> Self {
         Self {
-            pubkey: acc.key(),
+            pubkey: unsafe { Account::key_ptr(acc) },
             is_writable,
             is_signer,
-            _account: PhantomData,
+            _accounts: PhantomData,
         }
     }
 }

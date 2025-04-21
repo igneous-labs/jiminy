@@ -1,13 +1,13 @@
 use core::marker::PhantomData;
 
-use jiminy_account::Account;
+use jiminy_account::{Account, Accounts};
 
 /// An `Account` for CPI invocations.
 ///
 /// This struct has the memory layout as expected by `sol_invoke_signed_c` syscall.
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
-pub struct CpiAccount<'borrow> {
+pub(crate) struct CpiAccount<'borrow> {
     /// Public key of the account.
     /// *const, shouldnt ever be modified
     key: *const [u8; 32],
@@ -39,32 +39,30 @@ pub struct CpiAccount<'borrow> {
     // This account's data contains a loaded program (and is now read-only).
     is_executable: bool,
 
-    /// This struct is only valid while the [`Account`] it points to
-    /// is borrowed and valid.
-    _account: PhantomData<&'borrow mut Account>,
+    /// This is tied to the borrow of the entire [`Accounts`] collection,
+    /// not the individual [`Account`]
+    _accounts: PhantomData<&'borrow Account>,
 }
 
-impl CpiAccount<'_> {
+impl<'borrow> CpiAccount<'borrow> {
     #[inline(always)]
-    pub fn from_mut_account(account: &mut Account) -> Self {
-        Self {
-            key: account.key(),
-            lamports: account.lamports_ref_mut(),
-            data_len: account.data_len_u64(),
-            data: account.data_mut().as_mut_ptr(),
-            owner: account.owner_ref_mut(),
-            rent_epoch: u64::MAX,
-            is_signer: account.is_signer(),
-            is_writable: account.is_writable(),
-            is_executable: account.is_executable(),
-            _account: PhantomData,
+    pub(crate) fn from_mut_account<const N: usize>(
+        _accounts: &'borrow Accounts<N>,
+        acc: *mut Account,
+    ) -> Self {
+        unsafe {
+            Self {
+                key: Account::key_ptr(acc),
+                lamports: Account::lamports_ptr(acc),
+                data_len: Account::data_len_from_ptr(acc),
+                data: Account::data_ptr(acc),
+                owner: Account::owner_ptr(acc),
+                rent_epoch: u64::MAX,
+                is_signer: Account::is_signer_from_ptr(acc),
+                is_writable: Account::is_writable_from_ptr(acc),
+                is_executable: Account::is_executable_from_ptr(acc),
+                _accounts: PhantomData,
+            }
         }
-    }
-}
-
-impl From<&mut Account> for CpiAccount<'_> {
-    #[inline(always)]
-    fn from(account: &mut Account) -> Self {
-        Self::from_mut_account(account)
     }
 }

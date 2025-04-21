@@ -76,6 +76,13 @@ impl<'account, const MAX_ACCOUNTS: usize> Accounts<'account, MAX_ACCOUNTS> {
         // so we can return &mut
         unsafe { &mut *handle.account.get() }
     }
+
+    /// Returns a raw pointer to the underlying Account to avoid UB related to
+    /// pointers derived from references. This is currently only used for CPI.
+    #[inline(always)]
+    pub const fn get_ptr(&self, handle: AccountHandle<'account>) -> *mut Account {
+        handle.account.get()
+    }
 }
 
 /// Iter

@@ -30,7 +30,7 @@ use crate::Account;
 ///
 /// # Implementation details
 ///
-/// - this is just a thin wrapper around `NonNull<Account>` to introduce the `'account` lifetime and invariance
+/// - this is just a thin wrapper around `&UnsafeCell<Account>`
 /// - the `'account` lifetime spans from when the [`Accounts`] struct is deserialized at the start
 ///   of the program to when it is dropped on program exit. This is usually `'static`.
 ///

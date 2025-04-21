@@ -24,9 +24,10 @@ mod cpi_account;
 mod cpi_account_meta;
 mod instruction;
 
-pub use cpi_account::*;
 pub use cpi_account_meta::*;
 pub use instruction::*;
+
+use cpi_account::*;
 
 pub(crate) const ONE_KB: usize = 1024;
 
@@ -91,14 +92,14 @@ impl<const MAX_CPI_ACCOUNTS: usize> Default for Cpi<'_, MAX_CPI_ACCOUNTS> {
     }
 }
 
-impl<const MAX_CPI_ACCOUNTS: usize> Cpi<'_, MAX_CPI_ACCOUNTS> {
+impl<'borrow, const MAX_CPI_ACCOUNTS: usize> Cpi<'borrow, MAX_CPI_ACCOUNTS> {
     // DO NOT #[inline(always)] invoke_signed.
     // #[inline] results in lower CUs and binary sizes
 
     #[inline]
     pub fn invoke_signed<'account, const MAX_ACCOUNTS: usize>(
         &mut self,
-        accounts: &mut Accounts<'account, MAX_ACCOUNTS>,
+        accounts: &'borrow mut Accounts<'account, MAX_ACCOUNTS>,
         Instr {
             prog: cpi_prog,
             data: cpi_ix_data,
@@ -114,33 +115,38 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<'_, MAX_CPI_ACCOUNTS> {
                         BuiltInProgramError::InvalidArgument,
                     ));
                 }
-                let acc = accounts.get_mut(handle);
+                let acc = accounts.get_ptr(handle);
                 // index-safety: bounds checked against MAX_CPI_ACCOUNTS above
                 // write-safety: CpiAccountMeta and CpiAccount are Copy,
                 // dont care about overwriting old data
-                self.metas[len].write(CpiAccountMeta::new(acc, perm));
+                self.metas[len].write(CpiAccountMeta::new(accounts, acc, perm));
                 // we technically dont need to pass duplicate AccountInfos
                 // but making metas correspond 1:1 with accounts just makes it easier.
                 //
                 // We've also unfortunately erased duplicate flag info when
                 // creating the `Accounts` struct.
-                self.accounts[len].write(CpiAccount::from_mut_account(acc));
+                self.accounts[len].write(CpiAccount::from_mut_account(accounts, acc));
                 Ok(len + 1)
             })?;
         let prog_id = accounts.get(cpi_prog).key();
 
-        invoke_signed_raw(
-            prog_id,
-            cpi_ix_data,
-            unsafe { core::slice::from_raw_parts(self.metas.as_ptr().cast(), len) },
-            unsafe { core::slice::from_raw_parts(self.accounts.as_ptr().cast(), len) },
-            signers_seeds,
-        )
+        unsafe {
+            invoke_signed_raw(
+                prog_id,
+                cpi_ix_data,
+                core::slice::from_raw_parts(self.metas.as_ptr().cast(), len),
+                core::slice::from_raw_parts(self.accounts.as_ptr().cast(), len),
+                signers_seeds,
+            )
+        }
     }
 }
 
+/// # Safety
+/// - metas and accounts must be pointing to Accounts that are not currently borrowed
+///   elsewhere, else UB. This is guaranteed by `&mut Accounts` in [`Cpi::invoke_signed`]
 #[inline]
-pub fn invoke_signed_raw(
+unsafe fn invoke_signed_raw(
     prog_id: &[u8; 32],
     ix_data: &[u8],
     metas: &[CpiAccountMeta<'_>],
@@ -151,12 +157,12 @@ pub fn invoke_signed_raw(
     {
         #[derive(Debug, Clone, Copy)]
         #[repr(C)]
-        struct CpiInstruction<'account> {
+        struct CpiInstruction<'borrow> {
             /// Public key of the program.
             program_id: *const [u8; 32],
 
             /// Accounts expected by the program instruction.
-            metas: *const CpiAccountMeta<'account>,
+            metas: *const CpiAccountMeta<'borrow>,
 
             /// Number of accounts expected by the program instruction.
             metas_len: u64,
