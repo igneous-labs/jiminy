@@ -5,7 +5,7 @@
 //   E.g. there used to be an AccountHandle::dup_from_ptr method for API symmetry with non_dup_from_ptr,
 //   but that resulted in a redundant read of the duplicate marker vs if we just used the matched byte directly.
 
-use core::{cell::UnsafeCell, cmp::min, mem::MaybeUninit, ptr::NonNull};
+use core::{cell::UnsafeCell, cmp::min, mem::MaybeUninit};
 
 use crate::{
     Account, AccountHandle, Accounts, BPF_ALIGN_OF_U128, MAX_PERMITTED_DATA_INCREASE,
@@ -101,13 +101,12 @@ impl AccountHandle<'_> {
     ///   in the runtime serialized buffer
     #[inline(always)]
     pub(crate) unsafe fn non_dup_from_ptr(ptr: *mut u8) -> (*mut u8, Self) {
-        let inner: NonNull<Account> = NonNull::new_unchecked(ptr.cast());
-        let total_len = core::mem::size_of::<Account>()
-            + inner.as_ref().data_len()
-            + MAX_PERMITTED_DATA_INCREASE;
+        let inner: *mut Account = ptr.cast();
+        let total_len =
+            core::mem::size_of::<Account>() + (*inner).data_len() + MAX_PERMITTED_DATA_INCREASE;
 
         let res = Self {
-            account: &*inner.as_ptr().cast::<UnsafeCell<Account>>(),
+            account: &*inner.cast::<UnsafeCell<Account>>(),
         };
         let ptr = ptr.add(total_len);
         let ptr = ptr.add(ptr.align_offset(BPF_ALIGN_OF_U128));

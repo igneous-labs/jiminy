@@ -3,7 +3,7 @@
 
 use core::{
     mem::{align_of, size_of},
-    ptr::addr_of,
+    ptr::addr_of_mut,
 };
 
 // Re-exports
@@ -219,19 +219,20 @@ impl Account {
 /// Account Data
 impl Account {
     #[inline(always)]
-    const fn data_ptr(&self) -> *mut u8 {
-        // data follow immediately after the end of Self
-        unsafe { addr_of!(*self).add(1).cast_mut().cast() }
-    }
-
-    #[inline(always)]
     pub fn data(&self) -> &[u8] {
-        unsafe { core::slice::from_raw_parts(self.data_ptr(), self.data_len()) }
+        unsafe {
+            core::slice::from_raw_parts(
+                // safe to cast const* to mut* but not safe to mutate through it
+                // since it was derived from &
+                Self::data_ptr((self as *const Self).cast_mut()),
+                self.data_len(),
+            )
+        }
     }
 
     #[inline(always)]
     pub fn data_mut(&mut self) -> &mut [u8] {
-        unsafe { core::slice::from_raw_parts_mut(self.data_ptr(), self.data_len()) }
+        unsafe { core::slice::from_raw_parts_mut(Self::data_ptr(self), self.data_len()) }
     }
 
     #[inline(always)]
@@ -262,7 +263,7 @@ impl Account {
                 // TODO: see if sol_memset syscall is necessary here,
                 // or if ptr::write_bytes is optimized into that
                 unsafe {
-                    core::ptr::write_bytes(self.data_ptr().add(curr_len), 0, growth);
+                    core::ptr::write_bytes(Self::data_ptr(self).add(curr_len), 0, growth);
                 }
             }
         }
@@ -288,6 +289,67 @@ impl Account {
                 BuiltInProgramError::ArithmeticOverflow,
             )),
         }
+    }
+}
+
+/// Raw Pointer accesors to avoid UB related to creating intermediate references.
+/// Currently only used in CPI
+impl Account {
+    /// # Safety
+    /// `this` must be a valid [`Account`]
+    #[inline(always)]
+    pub unsafe fn key_ptr(this: *mut Self) -> *mut [u8; 32] {
+        unsafe { addr_of_mut!((*this).key) }
+    }
+
+    /// # Safety
+    /// `this` must be a valid [`Account`]
+    #[inline(always)]
+    pub unsafe fn lamports_ptr(this: *mut Self) -> *mut u64 {
+        unsafe { addr_of_mut!((*this).lamports) }
+    }
+
+    /// # Safety
+    /// `this` must be a valid [`Account`]
+    #[inline(always)]
+    pub unsafe fn data_ptr(this: *mut Self) -> *mut u8 {
+        // data follow immediately after the end of Self
+        unsafe { addr_of_mut!(*this).add(1).cast() }
+    }
+
+    /// # Safety
+    /// `this` must be a valid [`Account`]
+    #[inline(always)]
+    pub unsafe fn data_len_from_ptr(this: *mut Self) -> u64 {
+        unsafe { (*this).data_len }
+    }
+
+    /// # Safety
+    /// `this` must be a valid [`Account`]
+    #[inline(always)]
+    pub unsafe fn owner_ptr(this: *mut Self) -> *mut [u8; 32] {
+        unsafe { addr_of_mut!((*this).owner) }
+    }
+
+    /// # Safety
+    /// `this` must be a valid [`Account`]
+    #[inline(always)]
+    pub unsafe fn is_signer_from_ptr(this: *mut Self) -> bool {
+        unsafe { (*this).is_signer != 0 }
+    }
+
+    /// # Safety
+    /// `this` must be a valid [`Account`]
+    #[inline(always)]
+    pub unsafe fn is_writable_from_ptr(this: *mut Self) -> bool {
+        unsafe { (*this).is_writable != 0 }
+    }
+
+    /// # Safety
+    /// `this` must be a valid [`Account`]
+    #[inline(always)]
+    pub unsafe fn is_executable_from_ptr(this: *mut Self) -> bool {
+        unsafe { (*this).is_executable != 0 }
     }
 }
 
