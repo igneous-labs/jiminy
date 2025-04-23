@@ -1,7 +1,7 @@
-mod bump;
+mod allogator;
 mod no;
 
-pub use bump::*;
+pub use allogator::*;
 pub use no::*;
 
 /// Start address of the memory region used for program heap.
@@ -18,10 +18,7 @@ macro_rules! default_allocator {
     () => {
         #[cfg(target_os = "solana")]
         #[global_allocator]
-        static A: $crate::allocator::BumpAllocator = $crate::allocator::BumpAllocator::new(
-            $crate::allocator::HEAP_START_ADDRESS,
-            $crate::allocator::HEAP_LENGTH,
-        );
+        static A: $crate::allocator::Allogator = $crate::allocator::Allogator::new();
     };
 }
 
