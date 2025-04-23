@@ -175,3 +175,4 @@ This section contains dev info for people who wish to work on the library.
 
 - [pinocchio](https://github.com/febo/pinocchio)
 - [augustin-cheron/solana-min-prog](https://github.com/augustin-cheron/solana-min-prog)
+- [allogator](https://github.com/cavemanloverboy/allogator)

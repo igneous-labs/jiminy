@@ -1,4 +1,4 @@
-//! .so file size: 20272
+//! .so file size: 20192
 
 #![cfg(feature = "test-sbf")]
 
@@ -19,7 +19,7 @@ const TEST_ACC_PK_1: Pubkey = pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZx
 const TEST_ACC_PK_2: Pubkey = pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
 
 // dont use msg!() in your programs, boys and girls
-/// CUs: 23292
+/// CUs: 23286
 #[test]
 fn log_hello_world_basic_cus() {
     const ACCS: [Pubkey; 2] = [TEST_ACC_PK_1, TEST_ACC_PK_2];

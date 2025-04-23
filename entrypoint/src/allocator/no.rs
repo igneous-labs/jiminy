@@ -1,10 +1,12 @@
+use core::ptr::null_mut;
+
 /// Zero global allocator.
 pub struct NoAllocator;
 
 unsafe impl core::alloc::GlobalAlloc for NoAllocator {
     #[inline(always)]
     unsafe fn alloc(&self, _: core::alloc::Layout) -> *mut u8 {
-        panic!("** NO ALLOCATOR **");
+        null_mut()
     }
 
     #[inline(always)]
