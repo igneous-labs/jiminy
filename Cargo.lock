@@ -1510,13 +1510,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "jiminy-sysvar"
+version = "0.1.0"
+dependencies = [
+ "jiminy-program-error",
+ "jiminy-syscall",
+]
+
+[[package]]
 name = "jiminy-sysvar-rent"
 version = "0.1.0"
 dependencies = [
  "bincode",
  "const-crypto",
  "jiminy-program-error",
- "jiminy-syscall",
+ "jiminy-sysvar",
  "proptest",
  "solana-rent",
 ]

@@ -51,5 +51,6 @@ jiminy-program-error = { path = "./program-error" }
 jiminy-return-data = { path = "./return-data" }
 jiminy-syscall = { path = "./syscall" }
 jiminy-system-prog-interface = { path = "./prog-interface/system" }
+jiminy-sysvar = { path = "./sysvar/sysvar" }
 jiminy-sysvar-rent = { path = "./sysvar/rent" }
 jiminy-test-utils = { path = "./test-utils" }

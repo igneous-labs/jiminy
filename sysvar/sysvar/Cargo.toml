@@ -1,0 +1,9 @@
+[package]
+name = "jiminy-sysvar"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+
+[dependencies]
+jiminy-program-error = { workspace = true }
+jiminy-syscall = { workspace = true }
