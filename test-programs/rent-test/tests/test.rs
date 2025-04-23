@@ -111,8 +111,12 @@ proptest! {
     fn rent_lamports_matches_sol_default(
         [payer, acc] in two_different_pubkeys(),
 
-        // TODO: investigate why large numbers like `8025126` throw InvalidRealloc
-        // even though it is < MAX_PERMITTED_DATA_LENGTH
+        // CreateAccount via CPI is limited to realloc data limit,
+        // not MAX_PERMITTED_DATA_LENGTH
+        // https://stackoverflow.com/a/70156099/5057425.
+        //
+        // There is no reason to CPI allocate() anymore? since you can just
+        // realloc after assigning to yourself
         size in 0usize..=1024 * 10,
     ) {
         for pk in [payer, acc] {
