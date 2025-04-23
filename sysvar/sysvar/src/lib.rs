@@ -12,10 +12,11 @@ pub trait SysvarId {
 }
 
 /// A sysvar that is:
-/// - small in size, so can be read out in whole via the syscall
-/// - has the same in-memory representation as its serialized format,
-///   which is what the syscall has access to.
-///   This means no struct padding allowed + align == 1.
+/// - small enough to be read out in whole via the sysvar syscall
+///   without exceeding stack size
+/// - has the same in-memory representation as its serialized format
+///   that is returned by the syscall.
+///   This means no struct padding allowed & align == 1.
 pub trait SimpleSysvar: SysvarId + Copy {
     #[inline]
     fn get() -> Result<Self, ProgramError> {

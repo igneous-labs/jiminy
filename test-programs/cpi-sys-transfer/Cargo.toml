@@ -19,5 +19,4 @@ jiminy-system-prog-interface = { workspace = true }
 jiminy-test-utils = { workspace = true }
 mollusk-svm = { workspace = true }
 proptest = { workspace = true }
-solana-logger = { workspace = true }
 solana-sdk = { workspace = true }

@@ -585,7 +585,6 @@ dependencies = [
  "jiminy-test-utils",
  "mollusk-svm",
  "proptest",
- "solana-logger",
  "solana-sdk",
 ]
 
@@ -788,7 +787,6 @@ dependencies = [
  "jiminy-test-utils",
  "mollusk-svm",
  "proptest",
- "solana-logger",
  "solana-sdk",
 ]
 
@@ -1533,6 +1531,7 @@ dependencies = [
 name = "jiminy-test-utils"
 version = "0.1.0"
 dependencies = [
+ "proptest",
  "solana-logger",
 ]
 
@@ -1671,7 +1670,6 @@ dependencies = [
  "jiminy-test-utils",
  "mollusk-svm",
  "proptest",
- "solana-logger",
  "solana-sdk",
 ]
 
@@ -1990,7 +1988,6 @@ dependencies = [
  "jiminy-test-utils",
  "mollusk-svm",
  "proptest",
- "solana-logger",
  "solana-sdk",
 ]
 
@@ -2195,7 +2192,6 @@ dependencies = [
  "jiminy-test-utils",
  "mollusk-svm",
  "proptest",
- "solana-logger",
  "solana-sdk",
 ]
 
@@ -2236,6 +2232,20 @@ name = "regex-syntax"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
+
+[[package]]
+name = "rent-test"
+version = "0.1.0"
+dependencies = [
+ "jiminy-cpi",
+ "jiminy-entrypoint",
+ "jiminy-system-prog-interface",
+ "jiminy-sysvar-rent",
+ "jiminy-test-utils",
+ "mollusk-svm",
+ "proptest",
+ "solana-sdk",
+]
 
 [[package]]
 name = "reqwest"

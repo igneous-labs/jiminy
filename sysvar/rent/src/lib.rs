@@ -47,7 +47,7 @@ pub const DEFAULT_BURN_PERCENT: u8 = 50;
 /// Account storage overhead for calculation of base rent.
 ///
 /// This is the number of bytes required to store an account with no data. It is
-/// added to an accounts data length when calculating [`Rent::minimum_balance`].
+/// added to an accounts data length when calculating [`Rent::min_balance`].
 pub const ACCOUNT_STORAGE_OVERHEAD: u64 = 128;
 
 #[repr(C)]
@@ -80,21 +80,18 @@ impl Rent {
 }
 
 impl Rent {
-    pub const DEFAULT: Self = Self::new(
-        DEFAULT_LAMPORTS_PER_BYTE_YEAR,
-        DEFAULT_EXEMPTION_THRESHOLD,
-        DEFAULT_BURN_PERCENT,
-    );
+    pub const DEFAULT: Self = Self {
+        lamports_per_byte_year: DEFAULT_LAMPORTS_PER_BYTE_YEAR.to_le_bytes(),
+        exemption_threshold: F64_DEFAULT_EXEMPTION_THRESHOLD_BITS.to_le_bytes(),
+        burn_percent: DEFAULT_BURN_PERCENT,
+    };
 }
 
 /// Constructors
 impl Rent {
+    // f64.to_le_bytes not yet stable in const in rustc 1.79
     #[inline]
-    pub const fn new(
-        lamports_per_byte_year: u64,
-        exemption_threshold: f64,
-        burn_percent: u8,
-    ) -> Self {
+    pub fn new(lamports_per_byte_year: u64, exemption_threshold: f64, burn_percent: u8) -> Self {
         Self {
             lamports_per_byte_year: lamports_per_byte_year.to_le_bytes(),
             exemption_threshold: exemption_threshold.to_le_bytes(),
@@ -110,8 +107,9 @@ impl Rent {
         u64::from_le_bytes(self.lamports_per_byte_year)
     }
 
+    // f64.to_le_bytes not yet stable in const in rustc 1.79
     #[inline(always)]
-    pub const fn exemption_threshold(&self) -> f64 {
+    pub fn exemption_threshold(&self) -> f64 {
         f64::from_le_bytes(self.exemption_threshold)
     }
 
@@ -158,15 +156,17 @@ impl Rent {
 }
 
 impl Rent {
+    // f64.to_le_bytes not yet stable in const in rustc 1.79
     /// Calculates the minimum balance for rent exemption.
     #[inline]
-    pub const fn minimum_balance(&self, data_len: usize) -> u64 {
-        self.minimum_balance_u64(data_len as u64)
+    pub fn min_balance(&self, data_len: usize) -> u64 {
+        self.min_balance_u64(data_len as u64)
     }
 
-    /// [`Self::minimum_balance`], but for `u64` `data_len`s instead of `usize`
+    // f64.to_le_bytes not yet stable in const in rustc 1.79
+    /// [`Self::min_balance`], but for `u64` `data_len`s instead of `usize`
     #[inline]
-    pub const fn minimum_balance_u64(&self, data_len: u64) -> u64 {
+    pub fn min_balance_u64(&self, data_len: u64) -> u64 {
         // NB: this looks like overflow paradise but this is what the agave
         // implementation is like
         if self.is_default_rent_threshold() {
@@ -239,7 +239,7 @@ mod tests {
 
             let sr_ser = bincode::serialize(&sr).unwrap();
             prop_assert_eq!(sr_ser.as_slice(), r.as_account_data());
-            prop_assert_eq!(sr.minimum_balance(data_len), r.minimum_balance(data_len));
+            prop_assert_eq!(sr.minimum_balance(data_len), r.min_balance(data_len));
         }
     }
 
