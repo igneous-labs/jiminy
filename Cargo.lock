@@ -511,6 +511,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "clock-test"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "jiminy-entrypoint",
+ "jiminy-return-data",
+ "jiminy-sysvar-clock",
+ "jiminy-test-utils",
+ "mollusk-svm",
+ "proptest",
+ "solana-sdk",
+]
+
+[[package]]
 name = "combine"
 version = "3.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -585,7 +599,6 @@ dependencies = [
  "jiminy-test-utils",
  "mollusk-svm",
  "proptest",
- "solana-logger",
  "solana-sdk",
 ]
 
@@ -788,7 +801,6 @@ dependencies = [
  "jiminy-test-utils",
  "mollusk-svm",
  "proptest",
- "solana-logger",
  "solana-sdk",
 ]
 
@@ -1510,13 +1522,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "jiminy-sysvar"
+version = "0.1.0"
+dependencies = [
+ "jiminy-program-error",
+ "jiminy-syscall",
+]
+
+[[package]]
+name = "jiminy-sysvar-clock"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "const-crypto",
+ "jiminy-sysvar",
+ "proptest",
+ "solana-clock",
+]
+
+[[package]]
 name = "jiminy-sysvar-rent"
 version = "0.1.0"
 dependencies = [
  "bincode",
  "const-crypto",
- "jiminy-program-error",
- "jiminy-syscall",
+ "jiminy-sysvar",
  "proptest",
  "solana-rent",
 ]
@@ -1525,6 +1555,7 @@ dependencies = [
 name = "jiminy-test-utils"
 version = "0.1.0"
 dependencies = [
+ "proptest",
  "solana-logger",
 ]
 
@@ -1663,7 +1694,6 @@ dependencies = [
  "jiminy-test-utils",
  "mollusk-svm",
  "proptest",
- "solana-logger",
  "solana-sdk",
 ]
 
@@ -1982,7 +2012,6 @@ dependencies = [
  "jiminy-test-utils",
  "mollusk-svm",
  "proptest",
- "solana-logger",
  "solana-sdk",
 ]
 
@@ -2187,7 +2216,6 @@ dependencies = [
  "jiminy-test-utils",
  "mollusk-svm",
  "proptest",
- "solana-logger",
  "solana-sdk",
 ]
 
@@ -2228,6 +2256,20 @@ name = "regex-syntax"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
+
+[[package]]
+name = "rent-test"
+version = "0.1.0"
+dependencies = [
+ "jiminy-cpi",
+ "jiminy-entrypoint",
+ "jiminy-system-prog-interface",
+ "jiminy-sysvar-rent",
+ "jiminy-test-utils",
+ "mollusk-svm",
+ "proptest",
+ "solana-sdk",
+]
 
 [[package]]
 name = "reqwest"

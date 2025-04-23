@@ -36,6 +36,7 @@ proptest = "^1"
 ## solana dev deps
 # // grouping these tgt to deal with solana's dependency hell more conveniently
 mollusk-svm = "^0.0.15"
+solana-clock = "^2"
 solana-logger = "^2"
 solana-rent = "^2"
 solana-sdk = "^2"
@@ -51,5 +52,7 @@ jiminy-program-error = { path = "./program-error" }
 jiminy-return-data = { path = "./return-data" }
 jiminy-syscall = { path = "./syscall" }
 jiminy-system-prog-interface = { path = "./prog-interface/system" }
+jiminy-sysvar = { path = "./sysvar/sysvar" }
+jiminy-sysvar-clock = { path = "./sysvar/clock" }
 jiminy-sysvar-rent = { path = "./sysvar/rent" }
 jiminy-test-utils = { path = "./test-utils" }

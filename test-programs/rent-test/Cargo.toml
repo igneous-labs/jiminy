@@ -1,7 +1,8 @@
 [package]
-name = "echo-return-data"
-version = "0.1.0"
+name = "rent-test"
+version.workspace = true
 edition.workspace = true
+license-file.workspace = true
 
 [features]
 default = []
@@ -11,8 +12,10 @@ test-sbf = []
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
+jiminy-cpi = { workspace = true }
 jiminy-entrypoint = { workspace = true }
-jiminy-return-data = { workspace = true }
+jiminy-system-prog-interface = { workspace = true }
+jiminy-sysvar-rent = { workspace = true }
 
 [dev-dependencies]
 jiminy-test-utils = { workspace = true }

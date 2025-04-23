@@ -21,7 +21,8 @@ const DEFAULT_HEAP_LENGTH: usize = super::HEAP_LENGTH;
 /// # Implementation
 ///
 /// The heap grows downwards from `HEAP_END = HEAP_START_ADDRESS + HEAP_LENGTH` to
-/// `HEAP_START_ADDRESS`. This is for easy arithmetic to round to alignment
+/// `HEAP_START_ADDRESS`. Growing downwards instead of upwards
+/// is for easy arithmetic to round to alignment
 /// of allocations by just zeroing out the approriate lower bits.
 /// The cursor address therefore decreases with each new allocation.
 ///
@@ -38,7 +39,12 @@ const DEFAULT_HEAP_LENGTH: usize = super::HEAP_LENGTH;
 /// to integers during const-eval. We dont have strict provenance of pointers
 /// but `usize as *mut u8` should be equivalent to `with_provenance_mut`
 /// https://doc.rust-lang.org/std/ptr/fn.with_exposed_provenance_mut.html
-/// Tho still not sure if this avoid UB completely
+/// Tho still not sure if this avoid UB completely.
+///
+/// We also cannot store any mutable state in this struct, even via interior mutability types,
+/// because doing so causes this to be put into static writable memory, which is not
+/// allowed by the runtime. Not sure if this is the right cause but compiled binaries
+/// using this approach have proven to be not executable.
 #[derive(Debug)] // do not derive Copy and Clone to avoid possibly having 2 allocators
 #[repr(transparent)]
 pub struct Allogator<const HEAP_LENGTH: usize = DEFAULT_HEAP_LENGTH> {

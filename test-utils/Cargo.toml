@@ -4,4 +4,5 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+proptest = { workspace = true }
 solana-logger = { workspace = true }
