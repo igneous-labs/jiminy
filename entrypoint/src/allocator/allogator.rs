@@ -88,12 +88,15 @@ impl<const HEAP_LENGTH: usize> Allogator<HEAP_LENGTH> {
         }
     }
 
-    /// This method is stricly meant to be used at compile-time only
+    /// This method is stricly meant to be used at compile-time only.
+    ///
+    /// Returns (updated Allogator, compile-time allocation).
+    ///
+    /// To avoid UB, the returned compile-time allocation should
+    /// always be `MaybeUninit` or a type that can be zero-initialized.
     ///
     /// No mutations allowed in const in rustc 1.79 yet
     /// so just do self -> Self.
-    ///
-    /// Returns (updated Allogator, compile-time allocation)
     #[inline]
     pub const fn const_alloc(self, layout: Layout) -> (Self, *mut u8) {
         let Self { const_heap_end } = self;
