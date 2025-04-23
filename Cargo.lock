@@ -1516,12 +1516,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "jiminy-sysvar-clock"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "const-crypto",
+ "jiminy-sysvar",
+ "proptest",
+ "solana-clock",
+]
+
+[[package]]
 name = "jiminy-sysvar-rent"
 version = "0.1.0"
 dependencies = [
  "bincode",
  "const-crypto",
- "jiminy-program-error",
  "jiminy-sysvar",
  "proptest",
  "solana-rent",

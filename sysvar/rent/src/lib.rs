@@ -3,7 +3,7 @@
 
 // Re-exports
 pub mod program_error {
-    pub use jiminy_program_error::*;
+    pub use jiminy_sysvar::program_error::*;
 }
 use program_error::*;
 
@@ -149,7 +149,7 @@ impl Rent {
     }
 
     #[inline]
-    pub const fn as_account_data(&self) -> &[u8; ACCOUNT_LEN] {
+    pub const fn as_account_data_arr(&self) -> &[u8; ACCOUNT_LEN] {
         // safety: repr of struct is packed byte-array
         unsafe { &*core::ptr::from_ref(self).cast() }
     }
@@ -238,7 +238,7 @@ mod tests {
             let r = Rent::new(lamports_per_byte_year, exemption_threshold, burn_percent);
 
             let sr_ser = bincode::serialize(&sr).unwrap();
-            prop_assert_eq!(sr_ser.as_slice(), r.as_account_data());
+            prop_assert_eq!(sr_ser.as_slice(), r.as_account_data_arr());
             prop_assert_eq!(sr.minimum_balance(data_len), r.min_balance(data_len));
         }
     }
@@ -249,7 +249,7 @@ mod tests {
             (lamports_per_byte_year, exemption_threshold, burn_percent) in rand_rent_params(),
         ) {
             let r = Rent::new(lamports_per_byte_year, exemption_threshold, burn_percent);
-            let ser = r.as_account_data();
+            let ser = r.as_account_data_arr();
             let de = Rent::of_account_data(ser).unwrap();
             prop_assert_eq!(*de, r);
         }

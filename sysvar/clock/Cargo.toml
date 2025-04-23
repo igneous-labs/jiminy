@@ -1,5 +1,5 @@
 [package]
-name = "jiminy-sysvar-rent"
+name = "jiminy-sysvar-clock"
 version.workspace = true
 edition.workspace = true
 
@@ -10,4 +10,4 @@ jiminy-sysvar = { workspace = true }
 [dev-dependencies]
 bincode = { workspace = true }
 proptest = { workspace = true }
-solana-rent = { workspace = true }
+solana-clock = { workspace = true }
