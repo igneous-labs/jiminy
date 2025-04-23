@@ -511,6 +511,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "clock-test"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "jiminy-entrypoint",
+ "jiminy-return-data",
+ "jiminy-sysvar-clock",
+ "jiminy-test-utils",
+ "mollusk-svm",
+ "proptest",
+ "solana-sdk",
+]
+
+[[package]]
 name = "combine"
 version = "3.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -59,3 +59,57 @@ macro_rules! inherent_simple_sysvar_get {
         }
     };
 }
+
+/// Implement pointer casting "deserialization"
+/// for simple sysvars.
+///
+/// # Safety
+/// - Can only be used with `#[repr(C, align(1))]` structs
+#[macro_export]
+macro_rules! impl_account_data_cast {
+    ($t:ty) => {
+        impl $t {
+            const ACCOUNT_LEN: usize = core::mem::size_of::<Self>();
+            const ACCOUNT_ALIGN: usize = core::mem::align_of::<Self>();
+
+            #[inline]
+            pub const fn of_account_data(account_data: &[u8]) -> Result<&Self, ProgramError> {
+                match account_data.len() {
+                    Self::ACCOUNT_LEN => unsafe {
+                        Ok(Self::of_account_data_unchecked(account_data))
+                    },
+                    _ => Err(ProgramError::from_builtin(
+                        BuiltInProgramError::InvalidAccountData,
+                    )),
+                }
+            }
+
+            /// # Safety
+            /// - account_data must be of `size_of::<Self>()`
+            #[inline]
+            pub const unsafe fn of_account_data_unchecked(account_data: &[u8]) -> &Self {
+                Self::of_account_data_arr(&*account_data.as_ptr().cast())
+            }
+
+            #[inline]
+            pub const fn of_account_data_arr(account_data_arr: &[u8; Self::ACCOUNT_LEN]) -> &Self {
+                const {
+                    assert!(Self::ACCOUNT_ALIGN == 1);
+                }
+
+                // safety: align-1 checked above
+                unsafe { &*core::ptr::from_ref(account_data_arr).cast() }
+            }
+
+            #[inline]
+            pub const fn as_account_data_arr(&self) -> &[u8; Self::ACCOUNT_LEN] {
+                const {
+                    assert!(Self::ACCOUNT_ALIGN == 1);
+                }
+
+                // safety: align-1 checked above
+                unsafe { &*core::ptr::from_ref(self).cast() }
+            }
+        }
+    };
+}

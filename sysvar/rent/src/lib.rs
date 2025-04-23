@@ -119,41 +119,10 @@ impl Rent {
     }
 }
 
-const ACCOUNT_LEN: usize = core::mem::size_of::<Rent>();
-const _ASSERT_ACCOUNT_LEN: () = assert!(ACCOUNT_LEN == 17);
+const _ASSERT_ACCOUNT_LEN: () = assert!(core::mem::size_of::<Rent>() == 17);
 const _ASSERT_ACCOUNT_ALIGN: () = assert!(core::mem::align_of::<Rent>() == 1);
 
-/// serde
-impl Rent {
-    #[inline]
-    pub const fn of_account_data(account_data: &[u8]) -> Result<&Self, ProgramError> {
-        match account_data.len() {
-            ACCOUNT_LEN => unsafe { Ok(Self::of_account_data_unchecked(account_data)) },
-            _ => Err(ProgramError::from_builtin(
-                BuiltInProgramError::InvalidAccountData,
-            )),
-        }
-    }
-
-    /// # Safety
-    /// - account_data must be of `size_of::<Self>()`
-    #[inline]
-    pub const unsafe fn of_account_data_unchecked(account_data: &[u8]) -> &Self {
-        Self::of_account_data_arr(&*account_data.as_ptr().cast())
-    }
-
-    #[inline]
-    pub const fn of_account_data_arr(account_data_arr: &[u8; ACCOUNT_LEN]) -> &Self {
-        // safety: repr of struct is packed byte-array
-        unsafe { &*core::ptr::from_ref(account_data_arr).cast() }
-    }
-
-    #[inline]
-    pub const fn as_account_data_arr(&self) -> &[u8; ACCOUNT_LEN] {
-        // safety: repr of struct is packed byte-array
-        unsafe { &*core::ptr::from_ref(self).cast() }
-    }
-}
+impl_account_data_cast!(Rent);
 
 impl Rent {
     // f64.to_le_bytes not yet stable in const in rustc 1.79
