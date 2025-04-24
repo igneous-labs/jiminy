@@ -57,7 +57,7 @@ pub struct Allogator<const HEAP_LENGTH: usize = DEFAULT_HEAP_LENGTH> {
 ///
 /// Any cursors keeping track of start of new memory should be updated to this value as well.
 ///
-/// Returns `0` (null pointer) if OOM.
+/// Returns `None` (null pointer) if OOM.
 ///
 /// Mutation of self needs to be split out because dereferencing *mut is not yet
 /// stable on cargo-build-sbf's rustc 1.79.

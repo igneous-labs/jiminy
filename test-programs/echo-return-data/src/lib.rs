@@ -9,10 +9,10 @@
 
 #![allow(unexpected_cfgs)]
 
-use std::cmp::min;
+use std::{cmp::min, mem::MaybeUninit};
 
 use jiminy_entrypoint::{account::AccountHandle, program_error::ProgramError};
-use jiminy_return_data::{get_return_data, set_return_data, MAX_RETURN_DATA};
+use jiminy_return_data::{set_return_data, ReturnData, MAX_RETURN_DATA};
 
 /// Keep this low to test handling of discarded accounts
 /// Also, 122 is max without running into stack limits
@@ -39,7 +39,9 @@ fn process_ix(
 
     set_return_data(&ret);
 
-    let Some(ret_data) = get_return_data::<MAX_RETURN_DATA>() else {
+    let mut ret_data: MaybeUninit<ReturnData> = MaybeUninit::uninit();
+
+    let Some(ret_data) = ReturnData::overwrite(&mut ret_data) else {
         return Err(ProgramError::custom(1));
     };
     if ret_data.program_id() != prog_id {
