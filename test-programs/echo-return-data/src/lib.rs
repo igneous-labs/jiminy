@@ -37,7 +37,9 @@ fn process_ix(
 
     ret[i..i + 32].copy_from_slice(prog_id);
 
-    set_return_data(&ret);
+    let ret = &ret[..i + 32];
+
+    set_return_data(ret);
 
     let mut ret_data: MaybeUninit<ReturnData> = MaybeUninit::uninit();
 
