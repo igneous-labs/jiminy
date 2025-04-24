@@ -67,8 +67,9 @@ macro_rules! program_entrypoint {
     };
 }
 
-// Returned borrowed views are of data that is valid for the remainder of the program, so 'static is the
-// correct lifetime to use rather than introducing an unbounded `<'a>` lifetime
+/// Returned borrowed views are of data that is valid for the remainder of the program, so 'static is the
+/// correct lifetime to use rather than introducing an unbounded `<'a>` lifetime.
+///
 /// # Safety
 /// - input must be a pointer returned by the solana runtime pointing to the start of the block
 ///   of program input memory (0x400000000)
@@ -80,7 +81,7 @@ pub unsafe fn deserialize<const MAX_ACCOUNTS: usize>(
     &'static [u8],
     &'static [u8; 32],
 ) {
-    let (input, accounts) = deser_accounts(input);
+    let (input, accounts) = deser_accounts(&(), input);
     // cast-safety: input is 8-byte aligned after deserializing all accounts
     let ix_data_len = input.cast::<u64>().read() as usize;
 
