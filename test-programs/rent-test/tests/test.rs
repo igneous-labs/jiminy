@@ -1,4 +1,4 @@
-//! .so file size: 6656
+//! .so file size: 6552
 
 #![cfg(feature = "test-sbf")]
 
@@ -71,7 +71,7 @@ fn setup(
     )
 }
 
-/// CUs: 1451
+/// CUs: 1438
 #[test]
 fn rent_test_basic_cus() {
     const PAYER: Pubkey = solana_sdk::pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");

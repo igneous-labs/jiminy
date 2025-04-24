@@ -11,19 +11,27 @@ pub trait SysvarId {
     const ID: [u8; 32];
 }
 
-/// A sysvar that is:
-/// - small enough to be read out in whole via the sysvar syscall
+/// A sysvar that:
+/// - is small enough to be read out in whole via the sysvar syscall
 ///   without exceeding stack size
 /// - has the same in-memory representation as its serialized format
-///   that is returned by the syscall.
-///   This means no struct padding allowed & align == 1.
-pub trait SimpleSysvar: SysvarId + Copy {
+///   that is returned by the syscall, at least for the first few bytes
+///   before external/suffix padding.
+///
+///   This means no internal padding between fields.
+///
+///   This means primitive fields must have the same endianness
+///   in the serialized format as the solana vm (little-endian).
+///
+/// # Safety
+/// - implementors must make sure the above requirements are met
+pub unsafe trait SimpleSysvar: SysvarId + Sized {
+    /// This is `size_of::<Self>()` for structs with no external/suffix padding,
+    /// but may be shorter for types that do have it.
+    const ACCOUNT_LEN: usize = core::mem::size_of::<Self>();
+
     #[inline]
     fn get() -> Result<Self, ProgramError> {
-        const {
-            assert!(core::mem::align_of::<Self>() == 1);
-        }
-
         #[cfg(target_os = "solana")]
         {
             let mut res = core::mem::MaybeUninit::<Self>::uninit();
@@ -32,7 +40,7 @@ pub trait SimpleSysvar: SysvarId + Copy {
                     Self::ID.as_ptr(),
                     res.as_mut_ptr().cast(),
                     0,
-                    core::mem::size_of::<Self>() as u64,
+                    Self::ACCOUNT_LEN as u64,
                 )
             };
             match core::num::NonZeroU64::new(syscall_res) {
@@ -60,22 +68,42 @@ macro_rules! inherent_simple_sysvar_get {
     };
 }
 
-/// Implement pointer casting "deserialization"
-/// for simple sysvars.
+/// Implement pointer casting "serialization"
+/// for `SimpleSysvar`s
 ///
 /// # Safety
-/// - Can only be used with `#[repr(C, align(1))]` structs
+/// - should only be used for types that impl `SimpleSysvar`
 #[macro_export]
-macro_rules! impl_account_data_cast {
+macro_rules! impl_cast_to_account_data {
     ($t:ty) => {
         impl $t {
-            const ACCOUNT_LEN: usize = core::mem::size_of::<Self>();
-            const ACCOUNT_ALIGN: usize = core::mem::align_of::<Self>();
+            #[inline]
+            pub const fn as_account_data_arr(
+                &self,
+            ) -> &[u8; <Self as $crate::SimpleSysvar>::ACCOUNT_LEN] {
+                // safety: SimpleSysvars means no internal struct padding.
+                // Presence of external/suffix padding just means those bytes
+                // are not included in the returned array ref.
+                unsafe { &*core::ptr::from_ref(self).cast() }
+            }
+        }
+    };
+}
 
+/// Implement pointer casting "serialization"
+/// for `SimpleSysvar`s
+///
+/// # Safety
+/// - should only be used for types that impl `SimpleSysvar` and
+///   have `size_of::<Self>() == Self::ACCOUNT_LEN`
+#[macro_export]
+macro_rules! impl_cast_from_account_data {
+    ($t:ty) => {
+        impl $t {
             #[inline]
             pub const fn of_account_data(account_data: &[u8]) -> Result<&Self, ProgramError> {
                 match account_data.len() {
-                    Self::ACCOUNT_LEN => unsafe {
+                    <Self as $crate::SimpleSysvar>::ACCOUNT_LEN => unsafe {
                         Ok(Self::of_account_data_unchecked(account_data))
                     },
                     _ => Err(ProgramError::from_builtin(
@@ -92,23 +120,17 @@ macro_rules! impl_account_data_cast {
             }
 
             #[inline]
-            pub const fn of_account_data_arr(account_data_arr: &[u8; Self::ACCOUNT_LEN]) -> &Self {
+            pub const fn of_account_data_arr(
+                account_data_arr: &[u8; <Self as $crate::SimpleSysvar>::ACCOUNT_LEN],
+            ) -> &Self {
                 const {
-                    assert!(Self::ACCOUNT_ALIGN == 1);
+                    assert!(
+                        <Self as $crate::SimpleSysvar>::ACCOUNT_LEN == core::mem::size_of::<Self>()
+                    );
                 }
 
-                // safety: align-1 checked above
+                // safety: SimpleSysvars means no internal struct padding
                 unsafe { &*core::ptr::from_ref(account_data_arr).cast() }
-            }
-
-            #[inline]
-            pub const fn as_account_data_arr(&self) -> &[u8; Self::ACCOUNT_LEN] {
-                const {
-                    assert!(Self::ACCOUNT_ALIGN == 1);
-                }
-
-                // safety: align-1 checked above
-                unsafe { &*core::ptr::from_ref(self).cast() }
             }
         }
     };
