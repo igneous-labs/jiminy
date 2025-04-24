@@ -5,6 +5,8 @@
 pub mod program_error {
     pub use jiminy_program_error::*;
 }
+use core::mem::{size_of, MaybeUninit};
+
 use program_error::*;
 
 pub trait SysvarId {
@@ -34,34 +36,54 @@ pub trait SysvarId {
 ///
 /// # Safety
 /// - implementors must make sure the above requirements are met
-pub unsafe trait SimpleSysvar: SysvarId + Sized {
+pub unsafe trait SimpleSysvar: SysvarId + Copy {
     /// Size of the account data of the sysvar.
     ///
     /// This is `size_of::<Self>()` for structs with no external/suffix padding,
     /// but may be shorter for types that do have it.
-    const ACCOUNT_LEN: usize = core::mem::size_of::<Self>();
+    const ACCOUNT_LEN: usize = size_of::<Self>();
 
     #[inline]
     fn get() -> Result<Self, ProgramError> {
+        let mut res = MaybeUninit::<Self>::uninit();
+        Self::write_to(&mut res)?;
+        Ok(unsafe { res.assume_init() })
+    }
+
+    /// This is potentially more compute-efficient than [`Self::get`] by explicitly specifying
+    /// `dst` as an out-pointer.
+    ///
+    /// The compiler has proven to be unable to optimize away the move/copy in
+    /// `MaybeUninit::assume_init()` in many cases, especially when the returned `Self` is
+    /// only dropped at entrypoint exit.
+    ///
+    /// For example, when calling `set_return_data()` with
+    /// `&Clock` after calling `Clock::get()`, the compiler always generates
+    /// bytecode that unnecessarily copies the 40 bytes to another location on the stack before calling.
+    ///
+    /// A memory leak can potentially occur if the initialized value in `dst` is not dropped, but
+    /// Self is Copy, so this is ok
+    #[inline]
+    fn write_to(dst: &mut MaybeUninit<Self>) -> Result<&mut Self, ProgramError> {
         #[cfg(target_os = "solana")]
         {
-            let mut res = core::mem::MaybeUninit::<Self>::uninit();
             let syscall_res = unsafe {
                 jiminy_syscall::sol_get_sysvar(
                     Self::ID.as_ptr(),
-                    res.as_mut_ptr().cast(),
+                    dst.as_mut_ptr().cast(),
                     0,
                     Self::ACCOUNT_LEN as u64,
                 )
             };
             match core::num::NonZeroU64::new(syscall_res) {
-                None => Ok(unsafe { res.assume_init() }),
+                None => Ok(unsafe { dst.assume_init_mut() }),
                 Some(err) => Err(ProgramError(err)),
             }
         }
 
         #[cfg(not(target_os = "solana"))]
         {
+            core::hint::black_box(dst);
             unreachable!()
         }
     }
@@ -75,6 +97,13 @@ macro_rules! inherent_simple_sysvar_get {
         #[inline]
         pub fn sysvar_get() -> Result<Self, $crate::program_error::ProgramError> {
             <Self as $crate::SimpleSysvar>::get()
+        }
+
+        #[inline]
+        pub fn sysvar_write_to(
+            dst: &mut core::mem::MaybeUninit<Self>,
+        ) -> Result<&mut Self, $crate::program_error::ProgramError> {
+            <Self as $crate::SimpleSysvar>::write_to(dst)
         }
     };
 }
