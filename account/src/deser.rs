@@ -12,7 +12,6 @@ use crate::{
     NON_DUP_MARKER,
 };
 
-// NB: the returned `'account` lifetime is unbound, make sure to bound it asap.
 /// # Returns
 /// `(pointer to start of instruction data, saved deserialized accounts)`.
 ///
@@ -21,10 +20,16 @@ use crate::{
 ///
 /// # Safety
 /// - `input` must point to start of runtime serialized buffer
+///
+/// # Notes
+/// - `_scope` is just an unused param that is meant to bound the
+///   `'account` lifetime; the returned [`Accounts`] will have the same
+///   lifetime as `_scope`
 #[inline(always)]
-pub unsafe fn deser_accounts<'account, const MAX_ACCOUNTS: usize>(
+pub unsafe fn deser_accounts<const MAX_ACCOUNTS: usize>(
+    _scope: &(),
     input: *mut u8,
-) -> (*mut u8, Accounts<'account, MAX_ACCOUNTS>) {
+) -> (*mut u8, Accounts<'_, MAX_ACCOUNTS>) {
     // this is uninit, interior mutable const shouldnt affect it
     #[allow(clippy::declare_interior_mutable_const)]
     const UNINIT: MaybeUninit<AccountHandle<'_>> = MaybeUninit::uninit();

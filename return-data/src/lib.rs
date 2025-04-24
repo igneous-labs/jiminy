@@ -61,34 +61,54 @@ impl<const MAX_DATA_LEN: usize> ReturnData<MAX_DATA_LEN> {
     /// return data so far or return data has been cleared.
     #[inline]
     pub fn get() -> Option<Self> {
+        let mut res = MaybeUninit::uninit();
+        Self::overwrite(&mut res)?;
+        Some(unsafe { res.assume_init() })
+    }
+
+    /// Potentially more compute-efficient version [`Self::get`] by using out-pointers.
+    /// Overwrites the old data in `this`.
+    ///
+    /// The compiler has proven to be unable to optimize away the move/copy in
+    /// `MaybeUninit::assume_init()` in many cases, especially when the returned `Self` is
+    /// only dropped at entrypoint exit.
+    ///
+    /// A memory leak can potentially occur if the initialized value in the MaybeUninits
+    /// are not dropped, but this struct is Copy so its fine
+    #[inline]
+    pub fn overwrite(this: &mut MaybeUninit<Self>) -> Option<&mut Self> {
+        const {
+            assert!(MAX_DATA_LEN <= MAX_RETURN_DATA);
+        }
+
         #[cfg(target_os = "solana")]
         {
-            const UNINIT: MaybeUninit<u8> = MaybeUninit::uninit();
+            use core::ptr::addr_of_mut;
 
-            let mut res = Self {
-                len: 0,
-                program_id: MaybeUninit::uninit(),
-                buf: [UNINIT; MAX_DATA_LEN],
-            };
+            let this_ptr = this.as_mut_ptr();
             let size = unsafe {
                 jiminy_syscall::sol_get_return_data(
-                    res.buf.as_mut_ptr().cast(),
+                    addr_of_mut!((*this_ptr).buf).cast(),
                     MAX_DATA_LEN as u64,
-                    res.program_id.as_mut_ptr().cast(),
+                    addr_of_mut!((*this_ptr).program_id).cast(),
                 )
             };
             if size == 0 {
                 None
             } else {
-                // just being defensive here
+                // just being defensive here in case syscall returns some
+                // giant size
                 let size = core::cmp::min(size as usize, MAX_DATA_LEN);
-                res.len = size;
-                Some(res)
+                unsafe {
+                    addr_of_mut!((*this_ptr).len).write(size);
+                    Some(this.assume_init_mut())
+                }
             }
         }
 
         #[cfg(not(target_os = "solana"))]
         {
+            core::hint::black_box(this);
             unreachable!()
         }
     }
