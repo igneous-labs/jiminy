@@ -8,6 +8,8 @@
 use core::{
     alloc::{GlobalAlloc, Layout},
     mem::{align_of, size_of},
+    num::NonZeroUsize,
+    ptr::null_mut,
 };
 
 use super::HEAP_START_ADDRESS;
@@ -62,7 +64,7 @@ pub struct Allogator<const HEAP_LENGTH: usize = DEFAULT_HEAP_LENGTH> {
 ///
 /// Need to use usize instead of pointers so that its usable in const-contexts
 #[inline(always)]
-const fn alloc_result(cursor: usize, layout: Layout) -> usize {
+const fn alloc_result(cursor: usize, layout: Layout) -> Option<NonZeroUsize> {
     let res = cursor.saturating_sub(layout.size())
     // & !(align - 1) zeros out low bits so cursor is aligned to layout
     // which is a power of 2
@@ -71,9 +73,10 @@ const fn alloc_result(cursor: usize, layout: Layout) -> usize {
     // out of heap memory
     if res < HEAP_START_ADDRESS {
         // null pointer
-        0
+        None
     } else {
-        res
+        // safety: res >= HEAP_START_ADDRESS
+        Some(unsafe { NonZeroUsize::new_unchecked(res) })
     }
 }
 
@@ -106,10 +109,10 @@ impl<const HEAP_LENGTH: usize> Allogator<HEAP_LENGTH> {
     #[inline]
     pub const fn const_alloc(self, layout: Layout) -> (Self, *mut u8) {
         let Self { const_heap_end } = self;
-        let const_heap_end = alloc_result(const_heap_end, layout);
-        if const_heap_end == 0 {
-            panic!("Heap OOM");
-        }
+        let const_heap_end = match alloc_result(const_heap_end, layout) {
+            None => panic!("Heap OOM"),
+            Some(c) => c.get(),
+        };
         (Self { const_heap_end }, const_heap_end as *mut u8)
     }
 }
@@ -118,20 +121,22 @@ unsafe impl<const HEAP_LENGTH: usize> GlobalAlloc for Allogator<HEAP_LENGTH> {
     #[inline]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // deref of this ptr is most likely UB
-        let cursor = match unsafe { *(Self::CURSOR_ADDR as *const usize) } {
+        let cursor = match unsafe { *(Self::CURSOR_ADDR as *const Option<NonZeroUsize>) } {
             // set initial cursor
-            0 => self.const_heap_end,
-            c => c,
+            None => self.const_heap_end,
+            Some(c) => c.get(),
         };
-
         let new_alloc = alloc_result(cursor, layout);
-        if new_alloc != 0 {
-            // deref of this ptr is most likely UB
-            unsafe {
-                *(Self::CURSOR_ADDR as *mut usize) = new_alloc;
+        match new_alloc {
+            None => null_mut(),
+            Some(new_alloc) => {
+                // deref of this ptr is most likely UB
+                unsafe {
+                    *(Self::CURSOR_ADDR as *mut Option<NonZeroUsize>) = Some(new_alloc);
+                }
+                new_alloc.get() as *mut u8
             }
         }
-        new_alloc as *mut u8
     }
 
     #[inline]
