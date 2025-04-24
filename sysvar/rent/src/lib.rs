@@ -54,26 +54,35 @@ pub const ACCOUNT_STORAGE_OVERHEAD: u64 = 128;
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct Rent {
     /// Rental rate in lamports per byte-year
-    /// `u64`
-    lamports_per_byte_year: [u8; 8],
+    pub lamports_per_byte_year: u64,
 
     /// Exemption threshold in years.
     ///
     /// I CANNOT BELIEVE THEY ADDED A FLOAT TO A SYSVAR
     /// IN A VM THAT DOESNT SUPPORT IT BY DEFAULT
-    ///
-    /// `f64`
-    exemption_threshold: [u8; 8],
+    pub exemption_threshold: f64,
 
     /// Burn percentage
-    burn_percent: u8,
+    pub burn_percent: u8,
 }
 
 impl SysvarId for Rent {
     const ID: [u8; 32] = ID;
 }
 
-impl SimpleSysvar for Rent {}
+const _ASSERT_STRUCT_LEN: () = assert!(core::mem::size_of::<Rent>() == 24);
+const _ASSERT_ACCOUNT_ALIGN: () = assert!(core::mem::align_of::<Rent>() == 8);
+const _ASSERT_NO_INTERNAL_PADDING: () = {
+    use core::mem::offset_of;
+
+    assert!(offset_of!(Rent, lamports_per_byte_year) == 0);
+    assert!(offset_of!(Rent, exemption_threshold) == 8);
+    assert!(offset_of!(Rent, burn_percent) == 16);
+};
+
+unsafe impl SimpleSysvar for Rent {
+    const ACCOUNT_LEN: usize = 17;
+}
 
 impl Rent {
     inherent_simple_sysvar_get!();
@@ -81,48 +90,60 @@ impl Rent {
 
 impl Rent {
     pub const DEFAULT: Self = Self {
-        lamports_per_byte_year: DEFAULT_LAMPORTS_PER_BYTE_YEAR.to_le_bytes(),
-        exemption_threshold: F64_DEFAULT_EXEMPTION_THRESHOLD_BITS.to_le_bytes(),
+        lamports_per_byte_year: DEFAULT_LAMPORTS_PER_BYTE_YEAR,
+        exemption_threshold: DEFAULT_EXEMPTION_THRESHOLD,
         burn_percent: DEFAULT_BURN_PERCENT,
     };
 }
 
-/// Constructors
-impl Rent {
-    // f64.to_le_bytes not yet stable in const in rustc 1.79
+impl Default for Rent {
     #[inline]
-    pub fn new(lamports_per_byte_year: u64, exemption_threshold: f64, burn_percent: u8) -> Self {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl_cast_to_account_data!(Rent);
+
+/// Deserialization from account data.
+/// Cannot `impl_cast_from_account_data` due to the presence of external (suffix) padding bytes
+impl Rent {
+    #[inline]
+    pub fn from_account_data(account_data: &[u8]) -> Result<Self, ProgramError> {
+        match account_data.len() {
+            Self::ACCOUNT_LEN => unsafe { Ok(Self::from_account_data_unchecked(account_data)) },
+            _ => Err(ProgramError::from_builtin(
+                BuiltInProgramError::InvalidAccountData,
+            )),
+        }
+    }
+
+    /// # Safety
+    /// - account_data must be of `Self::ACCOUNT_LEN` length
+    #[inline]
+    pub unsafe fn from_account_data_unchecked(account_data: &[u8]) -> Self {
+        Self::from_account_data_arr(&*account_data.as_ptr().cast())
+    }
+
+    // f64.from_le_bytes not yet stable in const in rustc 1.79
+    #[inline]
+    pub fn from_account_data_arr(account_data_arr: &[u8; Self::ACCOUNT_LEN]) -> Self {
+        let Some((lamports_per_byte_year, rem)) = account_data_arr.split_first_chunk::<8>() else {
+            unreachable!()
+        };
+        let Some((exemption_threshold, rem)) = rem.split_first_chunk::<8>() else {
+            unreachable!()
+        };
+        let Some(burn_percent) = rem.first() else {
+            unreachable!()
+        };
         Self {
-            lamports_per_byte_year: lamports_per_byte_year.to_le_bytes(),
-            exemption_threshold: exemption_threshold.to_le_bytes(),
-            burn_percent,
+            lamports_per_byte_year: u64::from_le_bytes(*lamports_per_byte_year),
+            exemption_threshold: f64::from_le_bytes(*exemption_threshold),
+            burn_percent: *burn_percent,
         }
     }
 }
-
-/// Accessors
-impl Rent {
-    #[inline(always)]
-    pub const fn lamports_per_byte_year(&self) -> u64 {
-        u64::from_le_bytes(self.lamports_per_byte_year)
-    }
-
-    // f64.to_le_bytes not yet stable in const in rustc 1.79
-    #[inline(always)]
-    pub fn exemption_threshold(&self) -> f64 {
-        f64::from_le_bytes(self.exemption_threshold)
-    }
-
-    #[inline(always)]
-    pub const fn burn_percent(&self) -> u8 {
-        self.burn_percent
-    }
-}
-
-const _ASSERT_ACCOUNT_LEN: () = assert!(core::mem::size_of::<Rent>() == 17);
-const _ASSERT_ACCOUNT_ALIGN: () = assert!(core::mem::align_of::<Rent>() == 1);
-
-impl_account_data_cast!(Rent);
 
 impl Rent {
     // f64.to_le_bytes not yet stable in const in rustc 1.79
@@ -139,30 +160,23 @@ impl Rent {
         // NB: this looks like overflow paradise but this is what the agave
         // implementation is like
         if self.is_default_rent_threshold() {
-            ((ACCOUNT_STORAGE_OVERHEAD + data_len) * self.lamports_per_byte_year())
+            ((ACCOUNT_STORAGE_OVERHEAD + data_len) * self.lamports_per_byte_year)
                 * DEFAULT_EXEMPTION_THRESHOLD_AS_U64
         } else {
-            (((ACCOUNT_STORAGE_OVERHEAD + data_len) * self.lamports_per_byte_year()) as f64
-                * self.exemption_threshold()) as u64
+            (((ACCOUNT_STORAGE_OVERHEAD + data_len) * self.lamports_per_byte_year) as f64
+                * self.exemption_threshold) as u64
         }
     }
 
     #[inline]
-    const fn is_default_rent_threshold(&self) -> bool {
-        u64::from_le_bytes(self.exemption_threshold) == F64_DEFAULT_EXEMPTION_THRESHOLD_BITS
+    fn is_default_rent_threshold(&self) -> bool {
+        self.exemption_threshold.to_bits() == F64_DEFAULT_EXEMPTION_THRESHOLD_BITS
     }
 
     // all other methods from upstream are either test functions
     // or has to do with collecting rent from non-rent-exempt accounts,
     // which has pretty much been deprecated since
     // all accounts are required to be rent-exempt now (?)
-}
-
-impl Default for Rent {
-    #[inline]
-    fn default() -> Self {
-        Self::DEFAULT
-    }
 }
 
 #[cfg(test)]
@@ -177,8 +191,8 @@ mod tests {
         let sr = SolanaRent::default();
         let r = Rent::default();
 
-        assert_eq!(r.lamports_per_byte_year(), sr.lamports_per_byte_year);
-        assert_eq!(r.exemption_threshold(), sr.exemption_threshold);
+        assert_eq!(r.lamports_per_byte_year, sr.lamports_per_byte_year);
+        assert_eq!(r.exemption_threshold, sr.exemption_threshold);
         assert_eq!(r.burn_percent, sr.burn_percent);
     }
 
@@ -204,7 +218,7 @@ mod tests {
             data_len in 0..=u32::MAX as usize
         ) {
             let sr = SolanaRent { lamports_per_byte_year, exemption_threshold, burn_percent };
-            let r = Rent::new(lamports_per_byte_year, exemption_threshold, burn_percent);
+            let r = Rent{ lamports_per_byte_year, exemption_threshold, burn_percent };
 
             let sr_ser = bincode::serialize(&sr).unwrap();
             prop_assert_eq!(sr_ser.as_slice(), r.as_account_data_arr());
@@ -217,10 +231,10 @@ mod tests {
         fn serde_roundtrip(
             (lamports_per_byte_year, exemption_threshold, burn_percent) in rand_rent_params(),
         ) {
-            let r = Rent::new(lamports_per_byte_year, exemption_threshold, burn_percent);
+            let r = Rent { lamports_per_byte_year, exemption_threshold, burn_percent };
             let ser = r.as_account_data_arr();
-            let de = Rent::of_account_data(ser).unwrap();
-            prop_assert_eq!(*de, r);
+            let de = Rent::from_account_data(ser).unwrap();
+            prop_assert_eq!(de, r);
         }
     }
 }

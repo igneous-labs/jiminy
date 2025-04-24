@@ -1,4 +1,4 @@
-//! .so file size: 1736
+//! .so file size: 1672
 
 #![cfg(feature = "test-sbf")]
 
@@ -14,7 +14,7 @@ fn instr() -> Instruction {
     Instruction::new_with_bytes(PROG_ID, &[], vec![])
 }
 
-/// CUs: 242
+/// CUs: 234
 #[test]
 fn clock_test_basic_cus() {
     let svm = Mollusk::new(&PROG_ID, PROG_NAME);
