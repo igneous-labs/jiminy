@@ -1,11 +1,13 @@
 #![allow(unexpected_cfgs)]
 
+use std::mem::MaybeUninit;
+
 use jiminy_cpi::{
     program_error::{BuiltInProgramError, ProgramError},
     Cpi,
 };
 use jiminy_pda::{
-    create_program_address, try_find_program_address, PdaSeed, PdaSeedArr, PdaSigner,
+    create_program_address_to, try_find_program_address_to, PdaSeed, PdaSeedArr, PdaSigner,
 };
 use jiminy_system_prog_interface::{assign_ix, AssignIxAccs, AssignIxData};
 
@@ -34,25 +36,30 @@ fn process_ix(
     .collect::<Result<PdaSeedArr, ProgramError>>()?;
 
     // find
-    let Some((pda_computed, bump)) = try_find_program_address(&seeds, prog_id) else {
+    let mut pda_computed_dst = MaybeUninit::uninit();
+    let mut bump = MaybeUninit::uninit();
+    let Some((pda_computed, bump)) =
+        try_find_program_address_to(&seeds, prog_id, &mut pda_computed_dst, &mut bump)
+    else {
         return Err(ProgramError::from_builtin(
             BuiltInProgramError::InvalidSeeds,
         ));
     };
-    if pda_computed != *accounts.get(pda).key() {
+    if pda_computed != accounts.get(pda).key() {
         return Err(ProgramError::custom(1));
     }
 
     // create
     seeds
-        .push(PdaSeed::new(core::slice::from_ref(&bump)))
+        .push(PdaSeed::new(core::slice::from_ref(bump)))
         .map_err(|_full| ProgramError::from_builtin(BuiltInProgramError::InvalidArgument))?;
-    let Some(pda_computed) = create_program_address(&seeds, prog_id) else {
+    let Some(pda_computed) = create_program_address_to(&seeds, prog_id, &mut pda_computed_dst)
+    else {
         return Err(ProgramError::from_builtin(
             BuiltInProgramError::InvalidSeeds,
         ));
     };
-    if pda_computed != *accounts.get(pda).key() {
+    if pda_computed != accounts.get(pda).key() {
         return Err(ProgramError::custom(2));
     }
 
