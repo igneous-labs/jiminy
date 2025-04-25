@@ -58,7 +58,7 @@ fn process_ix(
 
 ### Account Handle System and Compile-Time Borrow Checking
 
-Instead of using [`Rc`](https://doc.rust-lang.org/std/rc/struct.Rc.html)s to implement dynamic borrow checking at runtime
+Instead of using [`RefCell`](https://doc.rust-lang.org/std/cell/struct.RefCell.html)s (maybe wrapped in an [`Rc`](https://doc.rust-lang.org/std/rc/struct.Rc.html)) to implement dynamic borrow checking at runtime
 like the other libraries, jiminy solves the issue of aliasing duplicated accounts at compile-time. It does so
 by encapsulating all deserialized accounts into a common `Accounts` collection that only allows
 at any time, either a single `Account` to be mutably borrowed or multiple `Account`s to be immutably borrowed, just as it is
@@ -85,7 +85,7 @@ fn process_ix(
 ```
 
 The result of this is higher performance and smaller binary sizes because all the previous code
-related to handling of `Rc`s is no longer required. Say goodbye to the dreaded `AccountBorrowFailed` error.
+related to handling of `RefCell`s is no longer required. Say goodbye to the dreaded `AccountBorrowFailed` error.
 
 ### `NonZeroU64` as `ProgramError`
 
