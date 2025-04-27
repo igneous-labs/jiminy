@@ -112,7 +112,8 @@ mod tests {
         ) {
             let c = Clock { slot, epoch_start_timestamp, epoch, leader_schedule_epoch, unix_timestamp };
             let ser = c.as_account_data_arr();
-            let de = Clock::of_account_data(ser).unwrap();
+            // safety: aligned because underlying memory is c: Clock
+            let de = unsafe { Clock::of_account_data(ser) }.unwrap();
             prop_assert_eq!(*de, c);
         }
     }
