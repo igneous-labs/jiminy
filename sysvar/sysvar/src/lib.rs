@@ -178,7 +178,7 @@ macro_rules! impl_cast_from_account_data {
 
                 // safety: SimpleSysvar means no internal struct padding,
                 // and size equality between byte array and Self is checked at compile-time above
-                unsafe { &*core::ptr::from_ref(account_data_arr).cast() }
+                &*core::ptr::from_ref(account_data_arr).cast()
             }
         }
     };
