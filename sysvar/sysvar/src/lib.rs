@@ -147,9 +147,9 @@ macro_rules! impl_cast_from_account_data {
                 account_data: &[u8],
             ) -> Result<&Self, ProgramError> {
                 match account_data.len() {
-                    <Self as $crate::SimpleSysvar>::ACCOUNT_LEN => unsafe {
+                    <Self as $crate::SimpleSysvar>::ACCOUNT_LEN => {
                         Ok(Self::of_account_data_unchecked(account_data))
-                    },
+                    }
                     _ => Err(ProgramError::from_builtin(
                         BuiltInProgramError::InvalidAccountData,
                     )),
