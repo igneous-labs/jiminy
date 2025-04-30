@@ -23,12 +23,12 @@ fn process_ix(
     data: &[u8],
     prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
-    let Some(([payer, acc, sys_prog], _rem)) = accounts.as_slice().split_first_chunk() else {
+    let Some((accs, _rem)) = accounts.as_slice().split_first_chunk() else {
         return Err(ProgramError::from_builtin(
             BuiltInProgramError::NotEnoughAccountKeys,
         ));
     };
-    let [payer, acc, sys_prog] = [payer, acc, sys_prog].map(|h| *h);
+    let [payer, acc, sys_prog] = *accs;
 
     // this is uber fukt but moving the ix_data processing blocks
     // down here instead of before the accounts processing part

@@ -23,12 +23,11 @@ fn process_ix(
     data: &[u8],
     prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
-    let [sys_prog, pda] = accounts.as_slice() else {
+    let [sys_prog, pda] = *accounts.as_slice() else {
         return Err(ProgramError::from_builtin(
             BuiltInProgramError::NotEnoughAccountKeys,
         ));
     };
-    let [sys_prog, pda] = [sys_prog, pda].map(|h| *h);
 
     let mut seeds = SeedsItr {
         data_remaining: data,
