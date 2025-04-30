@@ -6,6 +6,6 @@ Program interfaces for common programs for use onchain.
 
 For more jiminy-compatible full-featured crates:
 
-- [sanctum-system-sdk](https://github.com/igneous-labs/sanctum-system-sdk)
-- [sanctum-spl-token-sdk](https://github.com/igneous-labs/sanctum-spl-token-sdk)
-- [sanctum-ata-sdk](https://github.com/igneous-labs/sanctum-ata-sdk)
+- [sanctum-system-sdk](https://github.com/igneous-labs/sanctum-system-sdk) (system program)
+- [sanctum-spl-token-sdk](https://github.com/igneous-labs/sanctum-spl-token-sdk) (spl token program)
+- [sanctum-ata-sdk](https://github.com/igneous-labs/sanctum-ata-sdk) (spl associated token account program)

@@ -5,7 +5,7 @@ use super::{internal_utils::signer_writable_to_perms, Instruction};
 
 pub const TRANSFER_IX_DISCM: [u8; 4] = [2, 0, 0, 0];
 
-#[generic_array_struct(pub)]
+#[generic_array_struct(builder pub)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct TransferIxAccs<T> {
