@@ -17,12 +17,11 @@ fn process_ix(
     data: &[u8],
     _prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
-    let [acc] = accounts.as_slice() else {
+    let [acc] = *accounts.as_slice() else {
         return Err(ProgramError::from_builtin(
             BuiltInProgramError::NotEnoughAccountKeys,
         ));
     };
-    let acc = *acc;
 
     let [Some(r1), Some(r2)] = core::array::from_fn(|i| {
         data.get(i * 8..i * 8 + 8)

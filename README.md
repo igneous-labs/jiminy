@@ -30,21 +30,20 @@ fn process_ix(
     _data: &[u8],
     _prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
-    let [from, to, sys_prog] = accounts.as_slice() else {
-        return Err(ProgramError::from_builtin(
-            BuiltInProgramError::NotEnoughAccountKeys,
-        ));
+    let (sys_prog, transfer_accs) = match accounts.as_slice().split_last_chunk() {
+        Some((&[sys_prog], ta)) => (sys_prog, TransferIxAccs(*ta)),
+        _ => {
+            return Err(ProgramError::from_builtin(
+                BuiltInProgramError::NotEnoughAccountKeys,
+            ))
+        }
     };
-    // need to copy out the `AccountHandle` instead of borrowing it
-    let [from, to, sys_prog] = [from, to, sys_prog].map(|h| *h);
 
-    // memset(sys_prog) uses sys_prog `AccountHandle` as placeholder to avoid unsafe code
-    let transfer_accounts = TransferIxAccs::memset(sys_prog).with_from(from).with_to(to);
     Cpi::<MAX_CPI_ACCS>::new().invoke_signed(
         accounts,
         transfer_ix(
             sys_prog,
-            transfer_accounts,
+            transfer_accs,
             &TransferIxData::new(ONE_SOL_IN_LAMPORTS),
         ),
         &[],
@@ -71,12 +70,11 @@ fn process_ix(
     _data: &[u8],
     _prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
-    let [handle_a, handle_b] = accounts.as_slice() else {
+    let [handle_a, handle_b] = *accounts.as_slice() else {
         return Err(ProgramError::from_builtin(
             BuiltInProgramError::NotEnoughAccountKeys,
         ));
     };
-    let [handle_a, handle_b] = [handle_a, handle_b].map(|h| *h);
     let a = accounts.get_mut(handle_a);
     let b = accounts.get(handle_b);
     a.dec_lamports(1); // this fails to compile with "cannot borrow accounts as immutable because it is also borrowed as mutable"

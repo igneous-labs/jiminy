@@ -5,7 +5,7 @@ use super::{internal_utils::signer_writable_to_perms, Instruction};
 
 pub const CREATE_ACCOUNT_IX_DISCM: [u8; 4] = [0; 4];
 
-#[generic_array_struct(pub)]
+#[generic_array_struct(builder pub)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct CreateAccountIxAccs<T> {
