@@ -17,13 +17,10 @@ fn process_ix(
     data: &[u8],
     _prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
-    let Some(trf_amt_bytes): Option<&[u8; 8]> = data
-        .get(..8)
-        .map_or_else(|| None, |subslice| subslice.try_into().ok())
-    else {
-        return Err(ProgramError::custom(1));
+    let trf_amt = match data.split_first_chunk() {
+        Some((trf_amt_bytes, _)) => u64::from_le_bytes(*trf_amt_bytes),
+        _ => return Err(ProgramError::custom(1)),
     };
-    let trf_amt = u64::from_le_bytes(*trf_amt_bytes);
 
     let (sys_prog, transfer_accs) = match accounts.as_slice().split_last_chunk() {
         Some((&[sys_prog], ta)) => (sys_prog, TransferIxAccs(*ta)),
