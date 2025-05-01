@@ -5,15 +5,12 @@
 use jiminy_test_utils::{silence_mollusk_prog_logs, two_different_pubkeys};
 use mollusk_svm::{program::keyed_account_for_system_program, result::InstructionResult, Mollusk};
 use proptest::prelude::*;
-use solana_sdk::{
-    account::Account,
-    instruction::{AccountMeta, Instruction},
-    pubkey::Pubkey,
-    system_program,
-};
+use solana_account::Account;
+use solana_instruction::{AccountMeta, Instruction};
+use solana_pubkey::Pubkey;
 
 const PROG_NAME: &str = "rent_test";
-const PROG_ID: Pubkey = solana_sdk::pubkey!("6zojiaZkiViGs8L21xXGjttFmFt2hRuzCSd9UXXnkZp4");
+const PROG_ID: Pubkey = solana_pubkey::pubkey!("6zojiaZkiViGs8L21xXGjttFmFt2hRuzCSd9UXXnkZp4");
 
 const ACC_IDX: usize = 1;
 
@@ -50,7 +47,7 @@ fn setup(
                     is_writable: true,
                 },
                 AccountMeta {
-                    pubkey: system_program::ID,
+                    pubkey: solana_system_program::id(),
                     is_signer: false,
                     is_writable: false,
                 },
@@ -74,8 +71,8 @@ fn setup(
 /// CUs: 1438
 #[test]
 fn rent_test_basic_cus() {
-    const PAYER: Pubkey = solana_sdk::pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
-    const ACC: Pubkey = solana_sdk::pubkey!("7A87rRA9qxBzRaJr7a8dHcmsPW3QfbnH63SjFzZSoz4Q");
+    const PAYER: Pubkey = solana_pubkey::pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
+    const ACC: Pubkey = solana_pubkey::pubkey!("7A87rRA9qxBzRaJr7a8dHcmsPW3QfbnH63SjFzZSoz4Q");
     const DATA_LEN: usize = 69;
 
     let svm = Mollusk::new(&PROG_ID, PROG_NAME);
@@ -98,7 +95,7 @@ fn rent_test_basic_cus() {
 
     // mollusk-svm does not check TransactionErrors
     // so we dont know whether `InsufficientFundsForRent`
-    // will get thrown. Just check against solana_sdk::Rent for now.
+    // will get thrown. Just check against solana_rent::Rent for now.
     //
     // NB: this means stuff like `UnbalancedTransaction` doesnt get checked either
     assert!(svm.sysvars.rent.minimum_balance(DATA_LEN) == acc.lamports);

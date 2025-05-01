@@ -5,10 +5,12 @@
 use jiminy_test_utils::silence_mollusk_prog_logs;
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
-use solana_sdk::{clock::Clock as SolanaClock, instruction::Instruction, pubkey::Pubkey};
+use solana_clock::Clock as SolanaClock;
+use solana_instruction::Instruction;
+use solana_pubkey::Pubkey;
 
 const PROG_NAME: &str = "clock_test";
-const PROG_ID: Pubkey = solana_sdk::pubkey!("DfbFRtuFbUaYfomYMhc8EPBYrC2zopTQcYK2cuNcPCwU");
+const PROG_ID: Pubkey = solana_pubkey::pubkey!("DfbFRtuFbUaYfomYMhc8EPBYrC2zopTQcYK2cuNcPCwU");
 
 fn instr() -> Instruction {
     Instruction::new_with_bytes(PROG_ID, &[], vec![])

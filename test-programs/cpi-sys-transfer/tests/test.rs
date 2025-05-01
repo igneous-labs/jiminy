@@ -5,35 +5,31 @@
 use jiminy_test_utils::silence_mollusk_prog_logs;
 use mollusk_svm::{program::keyed_account_for_system_program, result::InstructionResult, Mollusk};
 use proptest::prelude::*;
-use solana_sdk::{
-    account::Account,
-    instruction::{AccountMeta, Instruction},
-    pubkey,
-    pubkey::Pubkey,
-    system_program,
-};
+use solana_account::Account;
+use solana_instruction::{AccountMeta, Instruction};
+use solana_pubkey::Pubkey;
 
 const PROG_NAME: &str = "cpi_sys_transfer";
-const PROG_ID: Pubkey = pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
+const PROG_ID: Pubkey = solana_pubkey::pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
 
 /// CUs: 1314
 #[test]
 fn transfer_basic_cus() {
     const TRF_AMT: u64 = 1_000_000_000;
 
-    let from_pk = pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
+    let from_pk = solana_pubkey::pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
     let from = Account {
         lamports: TRF_AMT,
         data: vec![],
-        owner: system_program::ID,
+        owner: solana_system_program::id(),
         executable: false,
         rent_epoch: u64::MAX,
     };
-    let to_pk = pubkey!("9diwgHx6xrDjrvXUVx8B4drJMzv9ddh9fBSx59EWjFPU");
+    let to_pk = solana_pubkey::pubkey!("9diwgHx6xrDjrvXUVx8B4drJMzv9ddh9fBSx59EWjFPU");
     let to = Account {
         lamports: 0,
         data: vec![],
-        owner: system_program::ID,
+        owner: solana_system_program::id(),
         executable: false,
         rent_epoch: u64::MAX,
     };
@@ -51,7 +47,7 @@ fn transfer_basic_cus() {
             &TRF_AMT.to_le_bytes(),
             vec![
                 AccountMeta {
-                    pubkey: system_program::ID,
+                    pubkey: solana_system_program::id(),
                     is_signer: false,
                     is_writable: false,
                 },
@@ -118,7 +114,7 @@ proptest! {
         let [from, to] = [from_amt, to_amt].map(|amt| Account {
             lamports: amt,
             data: vec![],
-            owner: system_program::ID,
+            owner: solana_system_program::id(),
             executable: false,
             rent_epoch: u64::MAX,
         });
@@ -136,7 +132,7 @@ proptest! {
                 &amt.to_le_bytes(),
                 vec![
                     AccountMeta {
-                        pubkey: system_program::ID,
+                        pubkey: solana_system_program::id(),
                         is_signer: false,
                         is_writable: false,
                     },

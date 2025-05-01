@@ -6,16 +6,12 @@ use jiminy_pda::{MAX_SEEDS, MAX_SEED_LEN};
 use jiminy_test_utils::silence_mollusk_prog_logs;
 use mollusk_svm::{program::keyed_account_for_system_program, result::InstructionResult, Mollusk};
 use proptest::prelude::*;
-use solana_sdk::{
-    account::Account,
-    instruction::{AccountMeta, Instruction},
-    pubkey,
-    pubkey::Pubkey,
-    system_program,
-};
+use solana_account::Account;
+use solana_instruction::{AccountMeta, Instruction};
+use solana_pubkey::Pubkey;
 
 const PROG_NAME: &str = "pda_assign";
-const PROG_ID: Pubkey = pubkey!("xtjwVYz95ZdAGoGzwP5HFm1mrNMWpB3L4aDMRwbhd6d");
+const PROG_ID: Pubkey = solana_pubkey::pubkey!("xtjwVYz95ZdAGoGzwP5HFm1mrNMWpB3L4aDMRwbhd6d");
 
 /// CUs: 4516
 #[test]
@@ -59,7 +55,7 @@ fn pda_assign_basic_cus() {
             &SEED_IX_DATA,
             vec![
                 AccountMeta {
-                    pubkey: system_program::ID,
+                    pubkey: solana_system_program::id(),
                     is_signer: false,
                     is_writable: false,
                 },
@@ -122,7 +118,7 @@ fn pda_assign_max_seeds_cus() {
             &SEED_IX_DATA,
             vec![
                 AccountMeta {
-                    pubkey: system_program::ID,
+                    pubkey: solana_system_program::id(),
                     is_signer: false,
                     is_writable: false,
                 },
@@ -185,7 +181,7 @@ proptest! {
                 &ix_data,
                 vec![
                     AccountMeta {
-                        pubkey: system_program::ID,
+                        pubkey: solana_system_program::id(),
                         is_signer: false,
                         is_writable: false,
                     },

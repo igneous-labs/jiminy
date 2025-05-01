@@ -9,27 +9,23 @@ use jiminy_return_data::MAX_RETURN_DATA;
 use jiminy_test_utils::silence_mollusk_prog_logs;
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
-use solana_sdk::{
-    account::Account,
-    bpf_loader_upgradeable,
-    instruction::{AccountMeta, Instruction},
-    pubkey,
-    pubkey::Pubkey,
-    system_program,
-};
+use solana_account::Account;
+use solana_instruction::{AccountMeta, Instruction};
+use solana_pubkey::Pubkey;
+use solana_sdk_ids::bpf_loader_upgradeable;
 
 const PROG_NAME: &str = "echo_return_data";
-const PROG_ID: Pubkey = pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
+const PROG_ID: Pubkey = solana_pubkey::pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
 
 /// CUs: 478
 #[test]
 fn entrypoint_basic_cus() {
     let a1_is_exec = false;
-    let a1_pk = pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
+    let a1_pk = solana_pubkey::pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
     let a1 = Account {
         lamports: 100_000_000,
         data: vec![0, 1, 2],
-        owner: system_program::ID,
+        owner: solana_system_program::id(),
         executable: a1_is_exec,
         rent_epoch: u64::MAX,
     };
@@ -40,7 +36,7 @@ fn entrypoint_basic_cus() {
     };
 
     let a2_is_exec = true;
-    let a2_pk = pubkey!("9diwgHx6xrDjrvXUVx8B4drJMzv9ddh9fBSx59EWjFPU");
+    let a2_pk = solana_pubkey::pubkey!("9diwgHx6xrDjrvXUVx8B4drJMzv9ddh9fBSx59EWjFPU");
     let a2 = Account {
         lamports: 100_000_000,
         data: Vec::new(),
@@ -144,7 +140,7 @@ proptest! {
             accounts.push((pk, Account {
                 lamports: 100_000_000,
                 data: ad.clone(),
-                owner: system_program::ID,
+                owner: solana_system_program::id(),
                 executable: ar[32] != 0,
                 rent_epoch: u64::MAX,
             }));

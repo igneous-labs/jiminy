@@ -36,10 +36,14 @@ proptest = "^1"
 ## solana dev deps
 # // grouping these tgt to deal with solana's dependency hell more conveniently
 mollusk-svm = "^0.1"
+solana-account = "^2"
 solana-clock = "^2"
+solana-instruction = "^2"
 solana-logger = "^2"
+solana-pubkey = "^2"
 solana-rent = "^2"
-solana-sdk = "^2"
+solana-sdk-ids= "^2"
+solana-system-program = "^2"
 
 # workspace members
 jiminy-account = { path = "./account" }
