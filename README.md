@@ -167,10 +167,6 @@ This section contains dev info for people who wish to work on the library.
 
 ### Solana Versions
 
-#### SDK
-
-`solana-sdk=2.2.2` (idk how these vers numbers work anymore, each subcrate has a different vers)
-
 #### Toolchain
 
 ```sh
