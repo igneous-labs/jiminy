@@ -5,9 +5,11 @@
 pub mod program_error {
     pub use jiminy_program_error::*;
 }
+pub use jiminy_syscall::sol_get_sysvar;
+
 use core::mem::{size_of, MaybeUninit};
 
-use program_error::*;
+use program_error::ProgramError;
 
 pub trait SysvarId {
     const ID: [u8; 32];
@@ -68,7 +70,7 @@ pub unsafe trait SimpleSysvar: SysvarId + Copy {
         #[cfg(target_os = "solana")]
         {
             let syscall_res = unsafe {
-                jiminy_syscall::sol_get_sysvar(
+                sol_get_sysvar(
                     Self::ID.as_ptr(),
                     dst.as_mut_ptr().cast(),
                     0,

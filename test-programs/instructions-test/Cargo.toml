@@ -1,0 +1,25 @@
+[package]
+name = "instructions-test"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+
+[features]
+default = []
+test-sbf = []
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+jiminy-entrypoint = { workspace = true }
+jiminy-return-data = { workspace = true }
+jiminy-sysvar-instructions = { workspace = true }
+
+[dev-dependencies]
+jiminy-test-utils = { workspace = true }
+mollusk-svm = { workspace = true }
+proptest = { workspace = true }
+solana-account = { workspace = true }
+solana-instruction = { workspace = true }
+solana-pubkey = { workspace = true }

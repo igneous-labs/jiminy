@@ -1281,6 +1281,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "instructions-test"
+version = "0.1.0"
+dependencies = [
+ "jiminy-entrypoint",
+ "jiminy-return-data",
+ "jiminy-sysvar-instructions",
+ "jiminy-test-utils",
+ "mollusk-svm",
+ "proptest",
+ "solana-account",
+ "solana-instruction",
+ "solana-pubkey",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1402,6 +1417,10 @@ dependencies = [
 [[package]]
 name = "jiminy-sysvar-instructions"
 version = "0.1.0"
+dependencies = [
+ "const-crypto",
+ "jiminy-sysvar",
+]
 
 [[package]]
 name = "jiminy-sysvar-rent"
