@@ -1400,6 +1400,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "jiminy-sysvar-instructions"
+version = "0.1.0"
+
+[[package]]
 name = "jiminy-sysvar-rent"
 version = "0.1.0"
 dependencies = [

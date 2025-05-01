@@ -58,5 +58,6 @@ jiminy-syscall = { path = "./syscall" }
 jiminy-system-prog-interface = { path = "./prog-interface/system" }
 jiminy-sysvar = { path = "./sysvar/sysvar" }
 jiminy-sysvar-clock = { path = "./sysvar/clock" }
+jiminy-sysvar-instructions = { path = "./sysvar/instructions" }
 jiminy-sysvar-rent = { path = "./sysvar/rent" }
 jiminy-test-utils = { path = "./test-utils" }
