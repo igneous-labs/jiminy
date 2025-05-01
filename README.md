@@ -165,9 +165,20 @@ Compared to the most performant existing library (pinocchio), jiminy:
 
 This section contains dev info for people who wish to work on the library.
 
-### Solana Crates Version
+### Solana Versions
 
-`2.1.13`
+#### SDK
+
+`solana-sdk=2.2.2` (idk how these vers numbers work anymore, each subcrate has a different vers)
+
+#### Toolchain
+
+```sh
+$ cargo-build-sbf --version
+solana-cargo-build-sbf 2.2.6
+platform-tools v1.45
+rustc 1.79.0
+```
 
 ## References
 

@@ -35,7 +35,7 @@ proptest = "^1"
 
 ## solana dev deps
 # // grouping these tgt to deal with solana's dependency hell more conveniently
-mollusk-svm = "^0.0.15"
+mollusk-svm = "^0.1"
 solana-clock = "^2"
 solana-logger = "^2"
 solana-rent = "^2"
