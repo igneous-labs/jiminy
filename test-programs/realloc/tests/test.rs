@@ -8,17 +8,14 @@ use jiminy_entrypoint::account::{MAX_PERMITTED_DATA_INCREASE, MAX_PERMITTED_DATA
 use jiminy_test_utils::silence_mollusk_prog_logs;
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
-use solana_sdk::{
-    account::Account,
-    instruction::{AccountMeta, Instruction, InstructionError},
-    pubkey,
-    pubkey::Pubkey,
-};
+use solana_account::Account;
+use solana_instruction::{error::InstructionError, AccountMeta, Instruction};
+use solana_pubkey::Pubkey;
 
 const PROG_NAME: &str = "realloc";
-const PROG_ID: Pubkey = pubkey!("7A87rRA9qxBzRaJr7a8dHcmsPW3QfbnH63SjFzZSoz4Q");
+const PROG_ID: Pubkey = solana_pubkey::pubkey!("7A87rRA9qxBzRaJr7a8dHcmsPW3QfbnH63SjFzZSoz4Q");
 
-const TEST_ACC_PK: Pubkey = pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
+const TEST_ACC_PK: Pubkey = solana_pubkey::pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
 
 fn test_realloc_acc(data_len: usize) -> Account {
     Account {

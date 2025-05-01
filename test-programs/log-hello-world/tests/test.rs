@@ -5,18 +5,17 @@
 use jiminy_test_utils::silence_mollusk_prog_logs;
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
-use solana_sdk::{
-    account::Account,
-    instruction::{AccountMeta, Instruction},
-    pubkey,
-    pubkey::Pubkey,
-};
+use solana_account::Account;
+use solana_instruction::{AccountMeta, Instruction};
+use solana_pubkey::Pubkey;
 
 const PROG_NAME: &str = "log_hello_world";
-const PROG_ID: Pubkey = pubkey!("Hr9wsgMm4A5A3eE7eobvSWzHBNrNixakzDfsmE4cQKqq");
+const PROG_ID: Pubkey = solana_pubkey::pubkey!("Hr9wsgMm4A5A3eE7eobvSWzHBNrNixakzDfsmE4cQKqq");
 
-const TEST_ACC_PK_1: Pubkey = pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
-const TEST_ACC_PK_2: Pubkey = pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
+const TEST_ACC_PK_1: Pubkey =
+    solana_pubkey::pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
+const TEST_ACC_PK_2: Pubkey =
+    solana_pubkey::pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
 
 // dont use msg!() in your programs, boys and girls
 /// CUs: 23286

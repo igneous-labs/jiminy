@@ -18,4 +18,8 @@ jiminy-return-data = { workspace = true }
 jiminy-test-utils = { workspace = true }
 mollusk-svm = { workspace = true }
 proptest = { workspace = true }
-solana-sdk = { workspace = true }
+solana-account = { workspace = true }
+solana-sdk-ids = { workspace = true }
+solana-instruction = { workspace = true }
+solana-pubkey = { workspace = true }
+solana-system-program = { workspace = true }
