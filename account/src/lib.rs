@@ -218,6 +218,7 @@ impl Account {
 
 /// Account Data
 impl Account {
+    /// Account data is always guaranteed to be 8-byte aligned
     #[inline(always)]
     pub fn data(&self) -> &[u8] {
         unsafe {
@@ -230,6 +231,7 @@ impl Account {
         }
     }
 
+    /// Account data is always guaranteed to be 8-byte aligned
     #[inline(always)]
     pub fn data_mut(&mut self) -> &mut [u8] {
         unsafe { core::slice::from_raw_parts_mut(Self::data_ptr(self), self.data_len()) }

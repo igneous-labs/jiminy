@@ -6,4 +6,5 @@ license-file.workspace = true
 
 [dependencies]
 const-crypto = { workspace = true }
+jiminy-account = { workspace = true }
 jiminy-sysvar = { workspace = true }
