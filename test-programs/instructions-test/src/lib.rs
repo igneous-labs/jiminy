@@ -23,10 +23,11 @@ const MAX_ACCS: usize = 1;
 
 type Accounts<'account> = jiminy_entrypoint::account::Accounts<'account, MAX_ACCS>;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 #[repr(C)]
 pub struct IxArgs {
     pub ixs_len: u16,
+    pub curr_idx: u16,
     pub ix_idx: u16,
     pub ix_data_len: u16,
     pub acc_idx: u16,
@@ -70,6 +71,7 @@ fn process_ix(
         ix_idx,
         ix_data_len,
         acc_idx,
+        curr_idx,
         pubkey,
         is_writable,
         is_signer,
@@ -101,6 +103,10 @@ fn process_ix(
     }
     if flags.is_writable() != is_writable {
         return Err(ProgramError::custom(6));
+    }
+
+    if *curr_idx != ixs.current_idx_u16() {
+        return Err(ProgramError::custom(7));
     }
 
     Ok(())

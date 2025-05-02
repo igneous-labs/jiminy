@@ -95,6 +95,25 @@ impl Instructions<'_> {
     }
 }
 
+/// Current instruction index
+impl Instructions<'_> {
+    #[inline]
+    pub const fn current_idx_u16(&self) -> u16 {
+        // cannot guarantee alignment due to arbitrary ix data lengths,
+        // so no pointer casting allowed
+        match self.acc_data.split_last_chunk() {
+            Some((_prefix, end)) => u16::from_le_bytes(*end),
+            // safety: runtime serialized data should be valid
+            None => unreachable!(),
+        }
+    }
+
+    #[inline]
+    pub const fn current_idx(&self) -> usize {
+        self.current_idx_u16() as usize
+    }
+}
+
 // instructions
 
 /// An introspected instruction from instructions sysvar
@@ -146,6 +165,11 @@ impl Instructions<'_> {
 
             // last bytes are data
             end += data_len;
+
+            // if it exists, the next instruction follows and `end`
+            // is the next entry in the offset_table since its the start
+            // of the next instruction.
+            // Or if this is the last instruction, then the current ix index follows
 
             IntroInstr {
                 buf: &self.acc_data[start..end],
@@ -264,7 +288,7 @@ impl IntroInstrAccFlags {
 mod tests {
     use proptest::{collection::vec, prelude::*};
     use solana_instruction::{AccountMeta, BorrowedAccountMeta, BorrowedInstruction, Instruction};
-    use solana_instructions_sysvar::serialize_instructions;
+    use solana_instructions_sysvar::construct_instructions_data;
     use solana_pubkey::Pubkey;
 
     use super::*;
@@ -296,10 +320,11 @@ mod tests {
         // TODO: this test is dependent on host machine being little-endian
         #[test]
         fn check_against_sol(
-            ixs in vec(any_ix(), 0..7)
+            ixs in vec(any_ix(), 0..7),
+            current_ix_idx: u16,
         ) {
             // data should be 8-byte aligned?
-            let data = serialize_instructions(
+            let mut data = construct_instructions_data(
                 ixs
                     .iter()
                     .map(|instruction| BorrowedInstruction {
@@ -318,8 +343,11 @@ mod tests {
                     .collect::<Vec<_>>()
                     .as_slice(),
             );
+            *data.split_last_chunk_mut().unwrap().1 = current_ix_idx.to_le_bytes();
 
             let us = Instructions { acc_data: &data };
+
+            prop_assert_eq!(us.current_idx_u16(), current_ix_idx);
 
             prop_assert_eq!(us.len(), ixs.len());
 
