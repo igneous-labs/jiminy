@@ -1,3 +1,7 @@
+//! The instructions sysvar for transaction introspection.
+//!
+//! This sysvar cannot be accessed using the `sol_get_sysvar` syscalls and must be passed in as an account.
+//!
 //! ## References
 //! - [serialization format of Instructions sysvar](https://github.com/anza-xyz/solana-sdk/blob/691d3064149e732f105d6ac52b80065f09041fb8/instructions-sysvar/src/lib.rs#L84-L129). Just read the code, the comments are messed up.
 
@@ -323,7 +327,7 @@ mod tests {
             ixs in vec(any_ix(), 0..7),
             current_ix_idx: u16,
         ) {
-            // data should be 8-byte aligned?
+            // data should be 8-byte aligned (OS pls)
             let mut data = construct_instructions_data(
                 ixs
                     .iter()
