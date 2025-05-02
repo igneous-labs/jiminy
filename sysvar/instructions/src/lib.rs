@@ -15,7 +15,7 @@ pub mod sysvar {
     pub use jiminy_sysvar::*;
 }
 
-use core::{iter::Map, mem::size_of, ptr, slice};
+use core::{iter::Map, ptr, slice};
 
 use account::Account;
 use sysvar::SysvarId;
@@ -130,7 +130,7 @@ impl Instructions<'_> {
 
             // each account input is 33 bytes:
             // InstructionsAccountPerms + pubkey
-            end += accounts_len * size_of::<IntroInstrAcc>();
+            end += accounts_len * INTRO_INSTR_ACC_LEN;
 
             // next 32 bytes are program ID
             end += 32;
@@ -176,7 +176,7 @@ impl IntroInstr<'_> {
 
     const fn data_offset(&self) -> usize {
         2 // accounts_len
-        + size_of::<IntroInstrAcc>() * self.accounts_len // accounts
+        + INTRO_INSTR_ACC_LEN * self.accounts_len // accounts
         + 32 // program id
         + 2 // data len
     }
@@ -194,14 +194,21 @@ impl IntroInstr<'_> {
     }
 }
 
+const INTRO_INSTR_ACC_LEN: usize = 33;
+
 /// An instruction account of an introspected instruction from the instructions sysvar
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
-pub struct IntroInstrAcc([u8; 33]);
+pub struct IntroInstrAcc([u8; INTRO_INSTR_ACC_LEN]);
 
 impl IntroInstrAcc {
     #[inline]
-    pub const fn flags(&self) -> &IntroInstrAcc {
+    pub const fn as_buf(&self) -> &[u8; INTRO_INSTR_ACC_LEN] {
+        &self.0
+    }
+
+    #[inline]
+    pub const fn flags(&self) -> &IntroInstrAccFlags {
         // safety: valid cast bec IntroInstrAccFlags is repr(transparent)
         unsafe { &*ptr::from_ref(&self.0[0]).cast() }
     }
@@ -220,6 +227,11 @@ pub struct IntroInstrAccFlags(u8);
 impl IntroInstrAccFlags {
     const IS_SIGNER: u8 = 0b0000_0001;
     const IS_WRITABLE: u8 = 0b0000_0010;
+
+    #[inline]
+    pub const fn as_u8(&self) -> &u8 {
+        &self.0
+    }
 
     #[inline]
     pub const fn is_signer(&self) -> bool {

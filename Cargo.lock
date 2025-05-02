@@ -1285,13 +1285,13 @@ name = "instructions-test"
 version = "0.1.0"
 dependencies = [
  "jiminy-entrypoint",
- "jiminy-return-data",
  "jiminy-sysvar-instructions",
  "jiminy-test-utils",
  "mollusk-svm",
  "proptest",
  "solana-account",
  "solana-instruction",
+ "solana-instructions-sysvar",
  "solana-pubkey",
 ]
 
@@ -2771,6 +2771,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "427f2d0d6dc0bb49f16cef5e7f975180d2e80aab9bdd3b2af68e2d029ec63f43"
 dependencies = [
  "bitflags 2.8.0",
+ "qualifier_attr",
  "solana-account-info",
  "solana-instruction",
  "solana-program-error",
