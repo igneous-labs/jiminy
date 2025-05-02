@@ -1281,6 +1281,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "instructions-test"
+version = "0.1.0"
+dependencies = [
+ "jiminy-entrypoint",
+ "jiminy-sysvar-instructions",
+ "jiminy-test-utils",
+ "mollusk-svm",
+ "proptest",
+ "solana-account",
+ "solana-instruction",
+ "solana-instructions-sysvar",
+ "solana-pubkey",
+ "solana-sdk-ids",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1397,6 +1413,19 @@ dependencies = [
  "jiminy-sysvar",
  "proptest",
  "solana-clock",
+]
+
+[[package]]
+name = "jiminy-sysvar-instructions"
+version = "0.1.0"
+dependencies = [
+ "const-crypto",
+ "jiminy-account",
+ "jiminy-sysvar",
+ "proptest",
+ "solana-instruction",
+ "solana-instructions-sysvar",
+ "solana-pubkey",
 ]
 
 [[package]]
@@ -1648,6 +1677,17 @@ dependencies = [
  "solana-instruction",
  "solana-pubkey",
  "solana-transaction-context",
+]
+
+[[package]]
+name = "noop"
+version = "0.1.0"
+dependencies = [
+ "jiminy-entrypoint",
+ "mollusk-svm",
+ "solana-account",
+ "solana-instruction",
+ "solana-pubkey",
 ]
 
 [[package]]
@@ -2747,6 +2787,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "427f2d0d6dc0bb49f16cef5e7f975180d2e80aab9bdd3b2af68e2d029ec63f43"
 dependencies = [
  "bitflags 2.8.0",
+ "qualifier_attr",
  "solana-account-info",
  "solana-instruction",
  "solana-program-error",

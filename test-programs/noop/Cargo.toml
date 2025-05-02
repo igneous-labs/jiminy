@@ -1,0 +1,20 @@
+[package]
+name = "noop"
+version = "0.1.0"
+edition.workspace = true
+
+[features]
+default = []
+test-sbf = []
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+jiminy-entrypoint = { workspace = true }
+
+[dev-dependencies]
+mollusk-svm = { workspace = true }
+solana-account = { workspace = true }
+solana-instruction = { workspace = true }
+solana-pubkey = { workspace = true }

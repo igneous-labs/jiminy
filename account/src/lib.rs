@@ -92,22 +92,22 @@ const _CHECK_ACCOUN_RAW_ALIGN: () = assert!(align_of::<Account>() == 8);
 /// Accessors
 impl Account {
     #[inline(always)]
-    pub fn is_signer(&self) -> bool {
+    pub const fn is_signer(&self) -> bool {
         self.is_signer != 0
     }
 
     #[inline(always)]
-    pub fn is_writable(&self) -> bool {
+    pub const fn is_writable(&self) -> bool {
         self.is_writable != 0
     }
 
     #[inline(always)]
-    pub fn is_executable(&self) -> bool {
+    pub const fn is_executable(&self) -> bool {
         self.is_executable != 0
     }
 
     #[inline(always)]
-    pub fn lamports(&self) -> u64 {
+    pub const fn lamports(&self) -> u64 {
         self.lamports
     }
 
@@ -117,27 +117,27 @@ impl Account {
     /// [`Self::lamports`] and [`Self::set_lamports`], [`Self::inc_lamports`],
     /// [`Self::dec_lamports`] instead.
     #[inline(always)]
-    pub fn lamports_ref(&self) -> &u64 {
+    pub const fn lamports_ref(&self) -> &u64 {
         &self.lamports
     }
 
     #[inline(always)]
-    pub fn data_len_u64(&self) -> u64 {
+    pub const fn data_len_u64(&self) -> u64 {
         self.data_len
     }
 
     #[inline(always)]
-    pub fn data_len(&self) -> usize {
+    pub const fn data_len(&self) -> usize {
         self.data_len_u64() as usize
     }
 
     #[inline(always)]
-    pub fn key(&self) -> &[u8; 32] {
+    pub const fn key(&self) -> &[u8; 32] {
         &self.key
     }
 
     #[inline(always)]
-    pub fn owner(&self) -> &[u8; 32] {
+    pub const fn owner(&self) -> &[u8; 32] {
         &self.owner
     }
 }
@@ -218,6 +218,7 @@ impl Account {
 
 /// Account Data
 impl Account {
+    /// Account data is always guaranteed to be 8-byte aligned
     #[inline(always)]
     pub fn data(&self) -> &[u8] {
         unsafe {
@@ -230,6 +231,7 @@ impl Account {
         }
     }
 
+    /// Account data is always guaranteed to be 8-byte aligned
     #[inline(always)]
     pub fn data_mut(&mut self) -> &mut [u8] {
         unsafe { core::slice::from_raw_parts_mut(Self::data_ptr(self), self.data_len()) }

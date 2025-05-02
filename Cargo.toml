@@ -39,6 +39,7 @@ mollusk-svm = { version = "^0.1", default-features = false }
 solana-account = { version = "^2", default-features = false }
 solana-clock = { version = "^2", default-features = false }
 solana-instruction = { version = "^2", default-features = false }
+solana-instructions-sysvar = { version = "^2", default-features = false }
 solana-logger = { version = "^2", default-features = false }
 solana-pubkey = { version = "^2", default-features = false }
 solana-rent = { version = "^2", default-features = false }
@@ -58,5 +59,6 @@ jiminy-syscall = { path = "./syscall" }
 jiminy-system-prog-interface = { path = "./prog-interface/system" }
 jiminy-sysvar = { path = "./sysvar/sysvar" }
 jiminy-sysvar-clock = { path = "./sysvar/clock" }
+jiminy-sysvar-instructions = { path = "./sysvar/instructions" }
 jiminy-sysvar-rent = { path = "./sysvar/rent" }
 jiminy-test-utils = { path = "./test-utils" }
