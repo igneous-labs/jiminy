@@ -8,3 +8,9 @@ license-file.workspace = true
 const-crypto = { workspace = true }
 jiminy-account = { workspace = true }
 jiminy-sysvar = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+solana-instruction = { workspace = true }
+solana-instructions-sysvar = { workspace = true, features = ["dev-context-only-utils"] }
+solana-pubkey = { workspace = true }

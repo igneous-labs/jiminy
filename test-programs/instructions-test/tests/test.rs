@@ -1,6 +1,6 @@
 //! .so file size: 8264
 
-//#![cfg(feature = "test-sbf")]
+#![cfg(feature = "test-sbf")]
 
 use instructions_test::IxArgs;
 use mollusk_svm::{result::InstructionResult, Mollusk};

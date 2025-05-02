@@ -174,9 +174,20 @@ impl IntroInstr<'_> {
         }
     }
 
-    const fn data_offset(&self) -> usize {
+    const fn program_id_offset(&self) -> usize {
         2 // accounts_len
         + INTRO_INSTR_ACC_LEN * self.accounts_len // accounts
+    }
+
+    #[inline]
+    pub const fn program_id(&self) -> &[u8; 32] {
+        // safety: [u8; 32] has no alignment requirements,
+        // data serialized by the runtime should be valid
+        unsafe { &*self.buf.as_ptr().add(self.program_id_offset()).cast() }
+    }
+
+    const fn data_offset(&self) -> usize {
+        self.program_id_offset()
         + 32 // program id
         + 2 // data len
     }
@@ -246,5 +257,82 @@ impl IntroInstrAccFlags {
     #[inline]
     const fn is_flag_set(&self, flag: u8) -> bool {
         flag & self.0 == flag
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::{collection::vec, prelude::*};
+    use solana_instruction::{AccountMeta, BorrowedAccountMeta, BorrowedInstruction, Instruction};
+    use solana_instructions_sysvar::serialize_instructions;
+    use solana_pubkey::Pubkey;
+
+    use super::*;
+
+    fn any_meta() -> impl Strategy<Value = AccountMeta> {
+        (any::<[u8; 32]>(), any::<bool>(), any::<bool>()).prop_map(
+            |(key, is_signer, is_writable)| AccountMeta {
+                pubkey: Pubkey::new_from_array(key),
+                is_signer,
+                is_writable,
+            },
+        )
+    }
+
+    fn any_ix() -> impl Strategy<Value = Instruction> {
+        (
+            any::<[u8; 32]>(),
+            vec(any_meta(), 0..42),
+            vec(any::<u8>(), 0..512),
+        )
+            .prop_map(|(program_id, accounts, data)| Instruction {
+                program_id: Pubkey::new_from_array(program_id),
+                accounts,
+                data,
+            })
+    }
+
+    proptest! {
+        // TODO: this test is dependent on host machine being little-endian
+        #[test]
+        fn check_against_sol(
+            ixs in vec(any_ix(), 0..7)
+        ) {
+            // data should be 8-byte aligned?
+            let data = serialize_instructions(
+                ixs
+                    .iter()
+                    .map(|instruction| BorrowedInstruction {
+                        program_id: &instruction.program_id,
+                        accounts: instruction
+                            .accounts
+                            .iter()
+                            .map(|meta| BorrowedAccountMeta {
+                                pubkey: &meta.pubkey,
+                                is_signer: meta.is_signer,
+                                is_writable: meta.is_writable,
+                            })
+                            .collect(),
+                        data: &instruction.data,
+                    })
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+            );
+
+            let us = Instructions { acc_data: &data };
+
+            prop_assert_eq!(us.len(), ixs.len());
+
+            for (u, s) in us.iter().zip(ixs) {
+                prop_assert_eq!(u.program_id(), s.program_id.as_array());
+                prop_assert_eq!(u.data(), s.data);
+                prop_assert_eq!(u.accounts().len(), s.accounts.len());
+                for (ua, sa) in u.accounts().iter().zip(s.accounts) {
+                    prop_assert_eq!(ua.key(), sa.pubkey.as_array());
+                    prop_assert_eq!(ua.flags().is_signer(), sa.is_signer);
+                    prop_assert_eq!(ua.flags().is_writable(), sa.is_writable);
+                }
+            }
+        }
     }
 }
