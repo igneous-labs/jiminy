@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "account",
-    "bs58-utils",
     "cpi",
     "entrypoint",
     "log",
@@ -31,6 +30,7 @@ generic-array-struct = { version = "=0.3.1-bc", default-features = false }
 
 # dev deps
 bincode = "^1"
+bs58-fixed = { git = "https://github.com/igneous-labs/bs58-fixed.git", branch = "master" }
 proptest = "^1"
 
 ## solana dev deps
@@ -48,7 +48,6 @@ solana-system-program = { version = "^2", default-features = false }
 
 # workspace members
 jiminy-account = { path = "./account" }
-jiminy-bs58-utils = { path = "./bs58-utils" }
 jiminy-cpi = { path = "./cpi" }
 jiminy-entrypoint = { path = "./entrypoint" }
 jiminy-log = { path = "./log" }

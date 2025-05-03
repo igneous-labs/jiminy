@@ -389,6 +389,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bs58-fixed"
+version = "0.1.0"
+source = "git+https://github.com/igneous-labs/bs58-fixed.git?branch=master#f5c1a93220b24486037e4296f9866dc133b9c4c5"
+dependencies = [
+ "bs58",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1334,14 +1342,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jiminy-bs58-utils"
-version = "0.1.0"
-dependencies = [
- "bs58",
- "proptest",
-]
-
-[[package]]
 name = "jiminy-cpi"
 version = "0.1.0"
 dependencies = [
@@ -1576,7 +1576,7 @@ checksum = "04cbf5b083de1c7e0222a7a51dbfdba1cbe1c6ab0b15e29fff3f6c077fd9cd9f"
 name = "log-hello-world"
 version = "0.1.0"
 dependencies = [
- "jiminy-bs58-utils",
+ "bs58-fixed",
  "jiminy-entrypoint",
  "jiminy-log",
  "jiminy-test-utils",
