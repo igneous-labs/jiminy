@@ -2,13 +2,14 @@
 
 #![allow(unexpected_cfgs)]
 
-use jiminy_bs58_utils::PubkeyStr;
 use jiminy_entrypoint::program_error::ProgramError;
 use jiminy_log::{msg, sol_log, sol_log_cus_remaining, sol_log_pubkey, sol_log_slice};
 
 pub const MAX_ACCS: usize = 128;
 
 type Accounts<'a> = jiminy_entrypoint::account::Accounts<'a, MAX_ACCS>;
+
+type PubkeyStr = bs58_fixed::Bs58Str<44>;
 
 jiminy_entrypoint::entrypoint!(process_ix, MAX_ACCS);
 
@@ -29,7 +30,7 @@ fn process_ix(
             .as_slice()
             .iter()
             .flat_map(|h| [
-                PubkeyStr::of(accounts.get(*h).key()).to_string(),
+                PubkeyStr::encode(accounts.get(*h).key()).to_string(),
                 ", ".to_owned()
             ])
             .collect::<String>()

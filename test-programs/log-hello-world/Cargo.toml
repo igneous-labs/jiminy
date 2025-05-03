@@ -11,7 +11,7 @@ test-sbf = []
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-jiminy-bs58-utils = { workspace = true }
+bs58-fixed = { workspace = true }
 jiminy-entrypoint = { workspace = true }
 jiminy-log = { workspace = true, features = ["std"] }
 
