@@ -1,4 +1,4 @@
-//! .so file size: 20192
+//! .so file size: 17464
 
 #![cfg(feature = "test-sbf")]
 
@@ -18,7 +18,7 @@ const TEST_ACC_PK_2: Pubkey =
     solana_pubkey::pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
 
 // dont use msg!() in your programs, boys and girls
-/// CUs: 23286
+/// CUs: 22976
 #[test]
 fn log_hello_world_basic_cus() {
     const ACCS: [Pubkey; 2] = [TEST_ACC_PK_1, TEST_ACC_PK_2];

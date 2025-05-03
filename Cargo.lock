@@ -391,7 +391,7 @@ dependencies = [
 [[package]]
 name = "bs58-fixed"
 version = "0.1.0"
-source = "git+https://github.com/igneous-labs/bs58-fixed.git?branch=master#f5c1a93220b24486037e4296f9866dc133b9c4c5"
+source = "git+https://github.com/igneous-labs/bs58-fixed.git?branch=master#a25c9f637e464d4d89e834003e3f7dbd1db74225"
 dependencies = [
  "bs58",
 ]

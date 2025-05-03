@@ -1,4 +1,4 @@
-//! This program logs inputs and returns
+//! This program prints a bunch of stuff
 
 #![allow(unexpected_cfgs)]
 
@@ -24,17 +24,17 @@ fn process_ix(
     sol_log("Hello jiminy!");
     sol_log_cus_remaining();
 
-    msg!(
-        "Accounts: {}",
-        accounts
-            .as_slice()
-            .iter()
-            .flat_map(|h| [
-                PubkeyStr::encode(accounts.get(*h).key()).to_string(),
-                ", ".to_owned()
-            ])
-            .collect::<String>()
-    );
+    // Dont bother with `.collect::<String>()` here since that
+    // requires owned Strings, adds a ton of overhead.
+    // Functional programming in rust is just not meant to be.
+    let mut accounts_str = String::new();
+    let mut pks = PubkeyStr::new();
+    accounts.as_slice().iter().for_each(|h| {
+        pks.encode_from(accounts.get(*h).key());
+        accounts_str += pks.as_str();
+        accounts_str += ", ";
+    });
+    msg!("Accounts: {accounts_str}");
     sol_log_cus_remaining();
 
     sol_log_slice(data);
