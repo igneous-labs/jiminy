@@ -68,7 +68,7 @@ fn setup(
     )
 }
 
-/// CUs: 1438
+/// CUs: 1442
 #[test]
 fn rent_test_basic_cus() {
     const PAYER: Pubkey = solana_pubkey::pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");

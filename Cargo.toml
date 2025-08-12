@@ -26,7 +26,7 @@ license-file = "LICENSE"
 # // on in individual crates as required to reduce deps 
 bs58 = { version = "^0.5", default-features = false }
 const-crypto = { version = "^0.3", default-features = false }
-generic-array-struct = { version = "=0.3.1-bc", default-features = false }
+generic-array-struct = { version = "^0.3.1", default-features = false }
 
 # dev deps
 bincode = "^1"
@@ -35,7 +35,7 @@ proptest = "^1"
 
 ## solana dev deps
 # // grouping these tgt to deal with solana's dependency hell more conveniently
-mollusk-svm = { version = "^0.1", default-features = false }
+mollusk-svm = { version = "^0.4", default-features = false }
 solana-account = { version = "^2", default-features = false }
 solana-clock = { version = "^2", default-features = false }
 solana-instruction = { version = "^2", default-features = false }

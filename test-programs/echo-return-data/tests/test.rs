@@ -1,4 +1,4 @@
-//! .so file size: 8272
+//! .so file size: 8208
 
 #![cfg(feature = "test-sbf")]
 
@@ -17,7 +17,7 @@ use solana_sdk_ids::bpf_loader_upgradeable;
 const PROG_NAME: &str = "echo_return_data";
 const PROG_ID: Pubkey = solana_pubkey::pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
 
-/// CUs: 478
+/// CUs: 483
 #[test]
 fn entrypoint_basic_cus() {
     let a1_is_exec = false;

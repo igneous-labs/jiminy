@@ -1,10 +1,11 @@
-//! .so file size: 8520
+//! .so file size: 8504
 
 #![cfg(feature = "test-sbf")]
 
 use std::collections::HashSet;
 
 use instructions_test::IxArgs;
+use jiminy_sysvar_instructions::sysvar::OWNER_ID;
 use jiminy_test_utils::silence_mollusk_prog_logs;
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::{collection::vec, prelude::*};
@@ -30,7 +31,7 @@ fn instr(args: &IxArgs) -> Instruction {
     )
 }
 
-/// CUs: 153
+/// CUs: 168
 #[test]
 fn instructions_test_basic_no_other_ixs_cus() {
     let svm = Mollusk::new(&PROG_ID, PROG_NAME);
@@ -201,6 +202,7 @@ fn instructions_sysvar(instructions: &[Instruction], curr_idx: u16) -> (Pubkey, 
         Pubkey::new_from_array(jiminy_sysvar_instructions::ID),
         Account {
             data,
+            owner: Pubkey::new_from_array(OWNER_ID),
             ..Default::default()
         },
     )

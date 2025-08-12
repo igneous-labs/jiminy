@@ -11,6 +11,11 @@ use core::mem::{size_of, MaybeUninit};
 
 use program_error::ProgramError;
 
+pub const OWNER_ID_STR: &str = "Sysvar1111111111111111111111111111111111111";
+
+/// All sysvar accounts have owner set to this pubkey
+pub const OWNER_ID: [u8; 32] = const_crypto::bs58::decode_pubkey(OWNER_ID_STR);
+
 pub trait SysvarId {
     const ID: [u8; 32];
 }

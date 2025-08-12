@@ -1,4 +1,4 @@
-//! .so file size: 2592
+//! .so file size: 2608
 
 #![cfg(feature = "test-sbf")]
 
@@ -12,7 +12,7 @@ use solana_pubkey::Pubkey;
 const PROG_NAME: &str = "cpi_sys_transfer";
 const PROG_ID: Pubkey = solana_pubkey::pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
 
-/// CUs: 1314
+/// CUs: 1315
 #[test]
 fn transfer_basic_cus() {
     const TRF_AMT: u64 = 1_000_000_000;
