@@ -125,9 +125,8 @@ impl Rent {
         Self::from_account_data_arr(&*account_data.as_ptr().cast())
     }
 
-    // f64.from_le_bytes not yet stable in const in rustc 1.79
     #[inline]
-    pub fn from_account_data_arr(account_data_arr: &[u8; Self::ACCOUNT_LEN]) -> Self {
+    pub const fn from_account_data_arr(account_data_arr: &[u8; Self::ACCOUNT_LEN]) -> Self {
         let Some((lamports_per_byte_year, rem)) = account_data_arr.split_first_chunk::<8>() else {
             unreachable!()
         };
@@ -146,17 +145,15 @@ impl Rent {
 }
 
 impl Rent {
-    // f64.to_le_bytes not yet stable in const in rustc 1.79
     /// Calculates the minimum balance for rent exemption.
     #[inline]
-    pub fn min_balance(&self, data_len: usize) -> u64 {
+    pub const fn min_balance(&self, data_len: usize) -> u64 {
         self.min_balance_u64(data_len as u64)
     }
 
-    // f64.to_le_bytes not yet stable in const in rustc 1.79
     /// [`Self::min_balance`], but for `u64` `data_len`s instead of `usize`
     #[inline]
-    pub fn min_balance_u64(&self, data_len: u64) -> u64 {
+    pub const fn min_balance_u64(&self, data_len: u64) -> u64 {
         // NB: this looks like overflow paradise but this is what the agave
         // implementation is like
         if self.is_default_rent_threshold() {
@@ -169,7 +166,7 @@ impl Rent {
     }
 
     #[inline]
-    fn is_default_rent_threshold(&self) -> bool {
+    const fn is_default_rent_threshold(&self) -> bool {
         self.exemption_threshold.to_bits() == F64_DEFAULT_EXEMPTION_THRESHOLD_BITS
     }
 
