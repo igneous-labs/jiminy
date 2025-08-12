@@ -69,8 +69,7 @@ impl Display for ProgramError {
     }
 }
 
-// TODO: reenable when cargo-build-sbf is upgraded
-// impl core::error::Error for ProgramError {}
+impl core::error::Error for ProgramError {}
 
 impl From<NonZeroU64> for ProgramError {
     #[inline(always)]
@@ -365,8 +364,7 @@ impl Display for BuiltInProgramError {
     }
 }
 
-// TODO: reenable when cargo-build-sbf is upgraded
-// impl core::error::Error for BuiltInProgramError {}
+impl core::error::Error for BuiltInProgramError {}
 
 impl From<BuiltInProgramError> for NonZeroU64 {
     #[inline(always)]
