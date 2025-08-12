@@ -1377,6 +1377,7 @@ dependencies = [
 name = "jiminy-sysvar"
 version = "0.1.0"
 dependencies = [
+ "const-crypto",
  "jiminy-program-error",
  "jiminy-syscall",
 ]
