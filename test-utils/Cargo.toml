@@ -3,6 +3,6 @@ name = "jiminy-test-utils"
 version.workspace = true
 edition.workspace = true
 
-[dependencies]
+[target.'cfg(not(target_os = "solana"))'.dependencies]
 proptest = { workspace = true }
 solana-logger = { workspace = true }
