@@ -1,4 +1,6 @@
+#![allow(unexpected_cfgs)]
 #![cfg(not(target_os = "solana"))]
+
 use proptest::{
     prelude::{Just, Strategy},
     strategy::Union,
