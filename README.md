@@ -171,7 +171,7 @@ This section contains dev info for people who wish to work on the library.
 
 ```sh
 $ cargo-build-sbf --version
-solana-cargo-build-sbf 2.2.21
+solana-cargo-build-sbf 2.3.7
 platform-tools v1.48
 rustc 1.84.1
 ```
