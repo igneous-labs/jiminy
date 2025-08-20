@@ -1,9 +1,13 @@
-//! .so file size: 6552
+//! .so file size: 6632
 
 #![cfg(feature = "test-sbf")]
 
 use jiminy_test_utils::{silence_mollusk_prog_logs, two_different_pubkeys};
-use mollusk_svm::{program::keyed_account_for_system_program, result::InstructionResult, Mollusk};
+use mollusk_svm::{
+    program::keyed_account_for_system_program,
+    result::{Check, InstructionResult},
+    Mollusk,
+};
 use proptest::prelude::*;
 use solana_account::Account;
 use solana_instruction::{AccountMeta, Instruction};
@@ -22,9 +26,7 @@ fn setup(
 
     // TODO: this param isnt used right now, original intention
     // was to set 1 lamport less than the None case then assert failure
-    // to ensure we are right at rent-exemption, but because mollusk-svm
-    // doesnt check for TransactionError::InsufficientFundsForRent,
-    // we cant do it like that
+    // to ensure we are right at rent-exemption
     lamports: Option<u64>,
 ) -> (Instruction, [(Pubkey, Account); 3]) {
     let mut data = Vec::from((size as u64).to_le_bytes());
@@ -68,7 +70,7 @@ fn setup(
     )
 }
 
-/// CUs: 1442
+/// CUs: 1451
 #[test]
 fn rent_test_basic_cus() {
     const PAYER: Pubkey = solana_pubkey::pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
@@ -84,7 +86,7 @@ fn rent_test_basic_cus() {
         raw_result,
         resulting_accounts,
         ..
-    } = svm.process_instruction(&ix, &accounts);
+    } = svm.process_and_validate_instruction(&ix, &accounts, &[Check::all_rent_exempt()]);
 
     raw_result.unwrap();
 
@@ -92,13 +94,6 @@ fn rent_test_basic_cus() {
 
     let acc = &resulting_accounts[ACC_IDX].1;
     assert_eq!(PROG_ID, acc.owner);
-
-    // mollusk-svm does not check TransactionErrors
-    // so we dont know whether `InsufficientFundsForRent`
-    // will get thrown. Just check against solana_rent::Rent for now.
-    //
-    // NB: this means stuff like `UnbalancedTransaction` doesnt get checked either
-    assert!(svm.sysvars.rent.minimum_balance(DATA_LEN) == acc.lamports);
 }
 
 const PK_EXCL: [[u8; 32]; 2] = [[0; 32], PROG_ID.to_bytes()];
@@ -133,12 +128,11 @@ proptest! {
             raw_result,
             resulting_accounts,
             ..
-        } = svm.process_instruction(&ix, &accounts);
+        } = svm.process_and_validate_instruction(&ix, &accounts, &[Check::all_rent_exempt()]);
 
         raw_result.unwrap();
 
         let acc = &resulting_accounts[ACC_IDX].1;
         assert_eq!(PROG_ID, acc.owner);
-        assert!(svm.sysvars.rent.minimum_balance(size) == acc.lamports);
     }
 }

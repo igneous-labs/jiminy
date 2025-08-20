@@ -16,8 +16,8 @@ use jiminy_system_prog_interface::{transfer_ix, TransferIxAccs, TransferIxData};
 const MAX_ACCS: usize = 3;
 
 // Determines the maximum number of accounts that can be used in a CPI,
-// including the program being invoked.
-const MAX_CPI_ACCS: usize = 3;
+// excluding the program being invoked.
+const MAX_CPI_ACCS: usize = 2;
 
 const ONE_SOL_IN_LAMPORTS: u64 = 1_000_000_000;
 

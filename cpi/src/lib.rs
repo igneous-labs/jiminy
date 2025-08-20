@@ -107,6 +107,28 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         }: Instr<'_, '_, impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>>,
         signers_seeds: &[PdaSigner],
     ) -> Result<(), ProgramError> {
+        let cpi_prog_id = *accounts.get(cpi_prog).key();
+        self.invoke_signed_raw(
+            accounts,
+            &cpi_prog_id,
+            cpi_ix_data,
+            cpi_accounts,
+            signers_seeds,
+        )
+    }
+
+    /// Same as [`Self::invoke_signed`], but with args exploded instead of
+    /// in an [`Instr`] struct + doesn't require [`AccountHandle`] for program being invoked
+    /// (useful for self CPIs)
+    #[inline]
+    pub fn invoke_signed_raw<'account, const MAX_ACCOUNTS: usize>(
+        &mut self,
+        accounts: &mut Accounts<'account, MAX_ACCOUNTS>,
+        cpi_prog_id: &[u8; 32],
+        cpi_ix_data: &[u8],
+        cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
+        signers_seeds: &[PdaSigner],
+    ) -> Result<(), ProgramError> {
         let len = cpi_accounts
             .into_iter()
             .try_fold(0, |len, (handle, perm)| {
@@ -128,11 +150,10 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
                 self.accounts[len].write(CpiAccount::from_mut_account(acc));
                 Ok(len + 1)
             })?;
-        let prog_id = accounts.get(cpi_prog).key();
 
         unsafe {
             invoke_signed_raw(
-                prog_id,
+                cpi_prog_id,
                 cpi_ix_data,
                 core::slice::from_raw_parts(self.metas.as_ptr().cast(), len),
                 core::slice::from_raw_parts(self.accounts.as_ptr().cast(), len),
