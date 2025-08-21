@@ -4,7 +4,7 @@ use crate::PdaSeed;
 
 /// The seeds for a single PDA signer.
 ///
-/// Just `&[PdaSeed]`, but in the layout that `sol_invoke_signed_c` expects
+/// Just `&[PdaSeed]`, but in the layout that the solana syscalls (e.g. `sol_invoke_signed_c`) expects
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 pub struct PdaSigner<'signer, 'seed> {

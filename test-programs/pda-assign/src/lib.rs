@@ -7,7 +7,8 @@ use jiminy_cpi::{
     Cpi,
 };
 use jiminy_pda::{
-    create_program_address_to, try_find_program_address_to, PdaSeed, PdaSeedArr, PdaSigner,
+    create_program_address_to, create_raw_program_address_to, try_find_program_address_to, PdaSeed,
+    PdaSeedArr, PdaSigner,
 };
 use jiminy_system_prog_interface::{assign_ix, AssignIxAccs, AssignIxData};
 
@@ -62,17 +63,32 @@ fn process_ix(
         return Err(ProgramError::custom(2));
     }
 
+    // create raw
+    seeds
+        .for_create_raw(prog_id)
+        .map_err(|_full| ProgramError::from_builtin(BuiltInProgramError::InvalidArgument))?;
+    let Some(pda_computed_raw) = create_raw_program_address_to(&seeds, &mut pda_computed_dst)
+    else {
+        return Err(ProgramError::from_builtin(
+            BuiltInProgramError::InvalidSeeds,
+        ));
+    };
+    if pda_computed_raw != accounts.get(pda).key() {
+        return Err(ProgramError::custom(3));
+    }
+
     // use sys_prog as placeholder to avoid unsafe code
     let assign_accounts = AssignIxAccs::memset(sys_prog).with_assign(pda);
     // assign pda to this prog
     Cpi::<MAX_CPI_ACCS>::new().invoke_signed(
         accounts,
         assign_ix(sys_prog, assign_accounts, &AssignIxData::new(prog_id)),
-        &[PdaSigner::new(&seeds)],
+        // last 2 item on `seeds` are program ID and PDA_MARKER, so omit those
+        &[PdaSigner::new(seeds.split_last_chunk::<2>().unwrap().0)],
     )?;
 
     if accounts.get(pda).owner() != prog_id {
-        return Err(ProgramError::custom(3));
+        return Err(ProgramError::custom(4));
     }
     Ok(())
 }

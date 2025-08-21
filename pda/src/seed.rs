@@ -1,6 +1,6 @@
 use core::{marker::PhantomData, ops::Deref};
 
-/// `&[u8]`, but in the layout that sol_invoke_signed_c expects
+/// `&[u8]`, but in the layout that the solana syscalls (e.g. `sol_invoke_signed_c`) expects
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 pub struct PdaSeed<'seed> {
