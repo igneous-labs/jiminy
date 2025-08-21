@@ -135,14 +135,14 @@ pub fn create_program_address_to<'dst>(
 /// Returns `None` if sha256 syscall failed.
 ///
 /// This is [`create_program_address`], but it only runs the raw sha256 hashing procedure
-/// to obtain the reuslting pubkey and does not verify that the resulting pubkey is indeed
+/// to obtain the resulting pubkey and does not verify that the pubkey is indeed
 /// not on the curve, therefore saving CUs there.
 ///
 /// # Args
 /// - `for_create_raw` - In order to fit into the format of the `sol_sha256` syscall, this should
-///                      be the slice of seeds, followed by the bump seed, followed by the program ID,
-///                      followed by [`PDA_MARKER`]. This can be obtained from an ordinary [`PdaSeedArr`]
-///                      ending with the bump seed by calling [`PdaSeedArr::for_create_raw`].
+///                      be the slice of seeds (including the bump seed), followed by the program ID as a [`PdaSeed`],
+///                      followed by [`PDA_MARKER`] as a [`PdaSeed`]. The last 2 elems can be
+///                      appended to a [`PdaSeedArr`] using [`PdaSeedArr::for_create_raw`].
 ///
 /// # Safety
 ///
@@ -154,8 +154,8 @@ pub fn create_raw_program_address(for_create_raw: &[PdaSeed]) -> Option<[u8; 32]
     Some(unsafe { pda.assume_init() })
 }
 
-/// This is potentially more compute-efficient than [`create_raw_program_address`] by explicitly specifying
-/// the out-pointers.
+/// This is potentially more compute-efficient than [`create_raw_program_address`]
+/// create_raw_program_address the out-pointers.
 ///
 /// The compiler has proven to be unable to optimize away the move/copy in
 /// `MaybeUninit::assume_init()` in many cases, especially when the returned `Self` is

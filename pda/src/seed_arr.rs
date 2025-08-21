@@ -7,7 +7,7 @@ use crate::{PdaSeed, PDA_MARKER};
 
 // rust syntax doesnt allow `const MAX_SEEDS: usize = crate::MAX_SEEDS`,
 // so redeclare a const here.
-// Add 2 to default value to enable for use in `create_raw_program_address`
+// Add 2 to max value to enable default value for use with `for_create_raw`
 const M: usize = crate::MAX_SEEDS + 2;
 
 /// An owned array of [`PdaSeed`]s, representing a single [`crate::PdaSigner`]
