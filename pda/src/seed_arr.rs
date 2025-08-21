@@ -3,11 +3,12 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use crate::PdaSeed;
+use crate::{PdaSeed, PDA_MARKER};
 
 // rust syntax doesnt allow `const MAX_SEEDS: usize = crate::MAX_SEEDS`,
-// so redeclare a const here
-const M: usize = crate::MAX_SEEDS;
+// so redeclare a const here.
+// Add 2 to default value to enable for use in `create_raw_program_address`
+const M: usize = crate::MAX_SEEDS + 2;
 
 /// An owned array of [`PdaSeed`]s, representing a single [`crate::PdaSigner`]
 #[derive(Debug, Clone, Copy)]
@@ -32,7 +33,7 @@ impl<'seed, const MAX_SEEDS: usize> PdaSeedArr<'seed, MAX_SEEDS> {
     }
 
     #[inline(always)]
-    pub fn push(&mut self, seed: PdaSeed<'seed>) -> Result<(), PdaSeed> {
+    pub fn push(&mut self, seed: PdaSeed<'seed>) -> Result<(), PdaSeed<'seed>> {
         if self.is_full() {
             Err(seed)
         } else {
@@ -72,8 +73,30 @@ impl<'seed, const MAX_SEEDS: usize> PdaSeedArr<'seed, MAX_SEEDS> {
     }
 
     #[inline(always)]
-    pub fn as_slice_mut(&mut self) -> &mut [PdaSeed<'seed>] {
+    pub const fn as_slice_mut(&mut self) -> &mut [PdaSeed<'seed>] {
         unsafe { core::slice::from_raw_parts_mut(self.seeds.as_mut_ptr().cast(), self.len()) }
+    }
+
+    /// Appends `prog_id` and [`PDA_MARKER`] to prepare this struct for [`crate::create_raw_program_address`].
+    ///
+    /// Returns Err if safety conditions of [`Self::for_create_raw_unchecked`] unmet
+    #[inline(always)]
+    pub fn for_create_raw(&mut self, prog_id: &'seed [u8; 32]) -> Result<(), PdaSeed<'seed>> {
+        let r1 = self.push(PdaSeed::new(prog_id));
+        let r2 = self.push(PdaSeed::new(&PDA_MARKER));
+        match (r1, r2) {
+            (Ok(()), Ok(())) => Ok(()),
+            (Err(s), _) => Err(s),
+            (_, Err(s)) => Err(s),
+        }
+    }
+
+    /// # Safety
+    /// - self must have at least 2 more empty slots
+    #[inline(always)]
+    pub unsafe fn for_create_raw_unchecked(&mut self, prog_id: &[u8; 32]) {
+        self.push_unchecked(PdaSeed::new(prog_id));
+        self.push_unchecked(PdaSeed::new(&PDA_MARKER));
     }
 }
 
