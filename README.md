@@ -9,7 +9,7 @@ A simple jiminy program that CPIs the system program to transfer 1 SOL from the 
 ```rust
 use jiminy_cpi::{program_error::BuiltInProgramError, Cpi};
 use jiminy_entrypoint::program_error::ProgramError;
-use jiminy_system_prog_interface::{transfer_ix, TransferIxAccs, TransferIxData};
+use jiminy_system_prog_interface::{TransferIxAccs, TransferIxData};
 
 // Determines the maximum number of accounts that can be deserialized and
 // saved to [`Accounts`]. Any proceeding accounts are discarded.
@@ -39,13 +39,12 @@ fn process_ix(
         }
     };
 
-    Cpi::<MAX_CPI_ACCS>::new().invoke_signed(
+    let sys_prog_key = *accounts.get(sys_prog).key();
+    Cpi::<MAX_CPI_ACCS>::new().invoke_signed_fwd(
         accounts,
-        transfer_ix(
-            sys_prog,
-            transfer_accs,
-            &TransferIxData::new(ONE_SOL_IN_LAMPORTS),
-        ),
+        &sys_prog_key,
+        TransferIxData::new(trf_amt).as_buf(),
+        transfer_accs.0,
         &[],
     )?;
 
@@ -117,20 +116,20 @@ memory footprint.
 // required than what is available on the stack.
 let mut cpi: Cpi = Cpi::new();
 
-cpi.invoke_signed(
+cpi.invoke_signed_fwd(
     accounts,
-    transfer_ix(
-        sys_prog,
-        transfer_accounts,
-        &TransferIxData::new(ONE_SOL_IN_LAMPORTS),
-    ),
+    &sys_prog_key,
+    TransferIxData::new(ONE_SOL_IN_LAMPORTS).as_buf(),
+    transfer_accs.0,
     &[],
 )?;
 
 // use the same allocation again for a completely different CPI
 cpi.invoke_signed(
     accounts,
-    assign_ix(sys_prog, assign_accounts, &AssignIxData::new(prog_id)),
+    &sys_prog_key,
+    &AssignIxData::new(prog_id)
+    assign_accs.into_account_handle_perms(),
     &[],
 )?;
 ```

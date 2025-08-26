@@ -34,4 +34,17 @@ impl CpiAccountMeta {
             is_signer,
         }
     }
+
+    /// Use the permissions of `acc` instead of having it from
+    /// an arg like [`Self::new`]
+    #[inline(always)]
+    pub(crate) fn fwd(acc: *mut Account) -> Self {
+        unsafe {
+            Self {
+                pubkey: Account::key_ptr(acc),
+                is_writable: (*acc).is_writable(),
+                is_signer: (*acc).is_signer(),
+            }
+        }
+    }
 }

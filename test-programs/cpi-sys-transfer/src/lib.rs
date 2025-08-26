@@ -35,11 +35,11 @@ fn process_ix(
         [transfer_accs.from(), transfer_accs.to()].map(|handle| accounts.get(*handle).lamports());
 
     let sys_prog_key = *accounts.get(sys_prog).key();
-    Cpi::<MAX_CPI_ACCS>::new().invoke_signed(
+    Cpi::<MAX_CPI_ACCS>::new().invoke_signed_fwd(
         accounts,
         &sys_prog_key,
         TransferIxData::new(trf_amt).as_buf(),
-        transfer_accs.into_account_handle_perms(),
+        transfer_accs.0,
         &[],
     )?;
 
