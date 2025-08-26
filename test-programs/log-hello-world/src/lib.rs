@@ -9,8 +9,6 @@ pub const MAX_ACCS: usize = 128;
 
 type Accounts<'a> = jiminy_entrypoint::account::Accounts<'a, MAX_ACCS>;
 
-type PubkeyStr = bs58_fixed::Bs58Str<44>;
-
 jiminy_entrypoint::entrypoint!(process_ix, MAX_ACCS);
 
 fn process_ix(
@@ -28,10 +26,10 @@ fn process_ix(
     // requires owned Strings, adds a ton of overhead.
     // Functional programming in rust is just not meant to be.
     let mut accounts_str = String::new();
-    let mut pks = PubkeyStr::new();
+    let mut pks = [0u8; 44];
     accounts.as_slice().iter().for_each(|h| {
-        pks.encode_from(accounts.get(*h).key());
-        accounts_str += pks.as_str();
+        let len = five8::encode_32(accounts.get(*h).key(), &mut pks);
+        accounts_str += unsafe { std::str::from_utf8_unchecked(&pks[..len as usize]) };
         accounts_str += ", ";
     });
     msg!("Accounts: {accounts_str}");

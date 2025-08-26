@@ -6,7 +6,7 @@ use std::{cmp::min, collections::HashMap};
 
 use echo_return_data::MAX_ACCS;
 use jiminy_return_data::MAX_RETURN_DATA;
-use jiminy_test_utils::silence_mollusk_prog_logs;
+use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -17,7 +17,10 @@ use solana_sdk_ids::bpf_loader_upgradeable;
 const PROG_NAME: &str = "echo_return_data";
 const PROG_ID: Pubkey = solana_pubkey::pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
 
-/// CUs: 483
+thread_local! {
+    static SVM: Mollusk = Mollusk::new(&PROG_ID, PROG_NAME);
+}
+
 #[test]
 fn entrypoint_basic_cus() {
     let a1_is_exec = false;
@@ -53,62 +56,62 @@ fn entrypoint_basic_cus() {
     let metas = vec![a1_meta.clone(), a2_meta.clone()];
     let n_accounts = metas.len();
 
-    let svm = Mollusk::new(&PROG_ID, PROG_NAME);
-
-    let InstructionResult {
-        compute_units_consumed,
-        raw_result,
-        return_data,
-        ..
-    } = svm.process_instruction(
-        &Instruction::new_with_bytes(PROG_ID, ix_data, metas),
-        &[(a1_pk, a1), (a2_pk, a2)],
-    );
-
-    raw_result.unwrap();
-
-    eprintln!("{compute_units_consumed} CUs");
-
-    for (i, (meta, is_exec)) in [(a1_meta, a1_is_exec), (a2_meta, a2_is_exec)]
-        .iter()
-        .enumerate()
-    {
-        let start = i * 35;
-        assert_eq!(&return_data[start..start + 32], meta.pubkey.to_bytes());
-        assert_eq!(return_data[start + 32], if *is_exec { 1 } else { 0 });
-        assert_eq!(return_data[start + 33], if meta.is_signer { 1 } else { 0 });
-        assert_eq!(
-            return_data[start + 34],
-            if meta.is_writable { 1 } else { 0 }
+    SVM.with(|svm| {
+        let InstructionResult {
+            compute_units_consumed,
+            raw_result,
+            return_data,
+            ..
+        } = svm.process_instruction(
+            &Instruction::new_with_bytes(PROG_ID, ix_data, metas),
+            &[(a1_pk, a1), (a2_pk, a2)],
         );
-    }
 
-    let ix_data_start = n_accounts * 35;
-    assert_eq!(
-        &return_data[ix_data_start..ix_data_start + ix_data.len()],
-        ix_data
-    );
+        raw_result.unwrap();
 
-    let ret_data_prog_id_start = ix_data_start + ix_data.len();
-    assert_eq!(
-        &return_data[ret_data_prog_id_start..ret_data_prog_id_start + 32],
-        PROG_ID.to_bytes()
-    );
+        for (i, (meta, is_exec)) in [(a1_meta, a1_is_exec), (a2_meta, a2_is_exec)]
+            .iter()
+            .enumerate()
+        {
+            let start = i * 35;
+            assert_eq!(&return_data[start..start + 32], meta.pubkey.to_bytes());
+            assert_eq!(return_data[start + 32], if *is_exec { 1 } else { 0 });
+            assert_eq!(return_data[start + 33], if meta.is_signer { 1 } else { 0 });
+            assert_eq!(
+                return_data[start + 34],
+                if meta.is_writable { 1 } else { 0 }
+            );
+        }
+
+        let ix_data_start = n_accounts * 35;
+        assert_eq!(
+            &return_data[ix_data_start..ix_data_start + ix_data.len()],
+            ix_data
+        );
+
+        let ret_data_prog_id_start = ix_data_start + ix_data.len();
+        assert_eq!(
+            &return_data[ret_data_prog_id_start..ret_data_prog_id_start + 32],
+            PROG_ID.to_bytes()
+        );
+
+        save_cus_to_file("basic", compute_units_consumed);
+    });
 }
 
 #[test]
 fn entrypoint_accounts_data_empty() {
-    let svm = Mollusk::new(&PROG_ID, PROG_NAME);
-
     let ix = Instruction::new_with_bytes(PROG_ID, &[], vec![]);
-    let InstructionResult {
-        raw_result,
-        return_data,
-        ..
-    } = svm.process_instruction(&ix, &[]);
-    raw_result.unwrap();
+    SVM.with(|svm| {
+        let InstructionResult {
+            raw_result,
+            return_data,
+            ..
+        } = svm.process_instruction(&ix, &[]);
+        raw_result.unwrap();
 
-    assert_eq!(&return_data[..32], PROG_ID.to_bytes());
+        assert_eq!(&return_data[..32], PROG_ID.to_bytes());
+    });
 }
 
 proptest! {
@@ -117,15 +120,13 @@ proptest! {
         acc_raw in proptest::collection::vec(any::<[u8; 35]>(), 0..11),
         acc_data in proptest::collection::vec(proptest::collection::vec(any::<u8>(), 0..2048), 0..11),
         ix_data in proptest::collection::vec(any::<u8>(), 0..1232),
-        prog_id: [u8; 32],
     ) {
-        let prog_id = Pubkey::new_from_array(prog_id);
+        silence_mollusk_prog_logs();
+
         // worst case 64 bytes for sig + 33 bytes for pk and index
         let max_data_len = min(1232 - 97 * (1 + acc_raw.len()), ix_data.len());
         let ix_data = &ix_data[..max_data_len];
 
-        let svm = Mollusk::new(&prog_id, PROG_NAME);
-        silence_mollusk_prog_logs();
 
         let mut account_metas = vec![];
         let mut accounts = vec![];
@@ -147,51 +148,56 @@ proptest! {
         }
 
         let ix = Instruction::new_with_bytes(
-            prog_id,
+            PROG_ID,
             ix_data,
             account_metas.clone(),
         );
-        let InstructionResult {
-            raw_result,
-            return_data,
-            ..
-        } = svm.process_instruction(
-            &ix,
-            &accounts,
-        );
-        raw_result.unwrap();
 
-        let acc_raw_saved_len = min(acc_raw.len(), MAX_ACCS);
-        let acc_raw = &acc_raw[..acc_raw_saved_len];
+        SVM.with(|svm| {
+            let InstructionResult {
+                raw_result,
+                return_data,
+                ..
+            } = svm.process_instruction(
+                &ix,
+                &accounts,
+            );
+            raw_result.unwrap();
 
-        let mut highest_priv = HashMap::new();
-        for meta in account_metas {
-            let v = highest_priv.entry(meta.pubkey).or_insert((meta.is_signer, meta.is_writable));
-            if meta.is_signer {
-                v.0 = true;
+            let acc_raw_saved_len = min(acc_raw.len(), MAX_ACCS);
+            let acc_raw = &acc_raw[..acc_raw_saved_len];
+
+            let mut highest_priv = HashMap::new();
+            for meta in account_metas {
+                let v = highest_priv.entry(meta.pubkey).or_insert((meta.is_signer, meta.is_writable));
+                if meta.is_signer {
+                    v.0 = true;
+                }
+                if meta.is_writable {
+                    v.1 = true;
+                }
             }
-            if meta.is_writable {
-                v.1 = true;
+
+            for (i, ar) in acc_raw.iter().enumerate() {
+                let start = i * 35;
+                let pk = Pubkey::try_from(&ar[..32]).unwrap();
+                let (is_signer, is_writable) = highest_priv.get(&pk).unwrap();
+                prop_assert_eq!(&return_data[start..start + 32], pk.to_bytes());
+                prop_assert_eq!(return_data[start + 32], if ar[32] != 0 { 1 } else { 0 }); // exec
+                prop_assert_eq!(return_data[start + 33], if *is_signer { 1 } else { 0 });
+                prop_assert_eq!(return_data[start + 34], if *is_writable { 1 } else { 0 });
             }
-        }
 
-        for (i, ar) in acc_raw.iter().enumerate() {
-            let start = i * 35;
-            let pk = Pubkey::try_from(&ar[..32]).unwrap();
-            let (is_signer, is_writable) = highest_priv.get(&pk).unwrap();
-            prop_assert_eq!(&return_data[start..start + 32], pk.to_bytes());
-            prop_assert_eq!(return_data[start + 32], if ar[32] != 0 { 1 } else { 0 }); // exec
-            prop_assert_eq!(return_data[start + 33], if *is_signer { 1 } else { 0 });
-            prop_assert_eq!(return_data[start + 34], if *is_writable { 1 } else { 0 });
-        }
+            // ix data
+            let ix_data_start = acc_raw.len() * 35;
+            let data_len_truncated = min(MAX_RETURN_DATA.saturating_sub(ix_data_start).saturating_sub(32), ix_data.len());
 
-        // ix data
-        let ix_data_start = acc_raw.len() * 35;
-        let data_len_truncated = min(MAX_RETURN_DATA.saturating_sub(ix_data_start).saturating_sub(32), ix_data.len());
+            prop_assert_eq!(&return_data[ix_data_start..ix_data_start + data_len_truncated], &ix_data[..data_len_truncated]);
+            // prog id
+            let ret_data_prog_id_start = ix_data_start + data_len_truncated;
+            prop_assert_eq!(&return_data[ret_data_prog_id_start..ret_data_prog_id_start + 32], PROG_ID.to_bytes());
 
-        prop_assert_eq!(&return_data[ix_data_start..ix_data_start + data_len_truncated], &ix_data[..data_len_truncated]);
-        // prog id
-        let ret_data_prog_id_start = ix_data_start + data_len_truncated;
-        prop_assert_eq!(&return_data[ret_data_prog_id_start..ret_data_prog_id_start + 32], prog_id.to_bytes());
+            Ok(())
+        }).unwrap();
     }
 }

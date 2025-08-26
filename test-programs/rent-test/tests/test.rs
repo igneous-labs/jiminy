@@ -2,7 +2,7 @@
 
 #![cfg(feature = "test-sbf")]
 
-use jiminy_test_utils::{silence_mollusk_prog_logs, two_different_pubkeys};
+use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs, two_different_pubkeys};
 use mollusk_svm::{
     program::keyed_account_for_system_program,
     result::{Check, InstructionResult},
@@ -15,6 +15,10 @@ use solana_pubkey::Pubkey;
 
 const PROG_NAME: &str = "rent_test";
 const PROG_ID: Pubkey = solana_pubkey::pubkey!("6zojiaZkiViGs8L21xXGjttFmFt2hRuzCSd9UXXnkZp4");
+
+thread_local! {
+    static SVM: Mollusk = Mollusk::new(&PROG_ID, PROG_NAME);
+}
 
 const ACC_IDX: usize = 1;
 
@@ -70,30 +74,31 @@ fn setup(
     )
 }
 
-/// CUs: 1451
 #[test]
 fn rent_test_basic_cus() {
     const PAYER: Pubkey = solana_pubkey::pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
     const ACC: Pubkey = solana_pubkey::pubkey!("7A87rRA9qxBzRaJr7a8dHcmsPW3QfbnH63SjFzZSoz4Q");
     const DATA_LEN: usize = 69;
 
-    let svm = Mollusk::new(&PROG_ID, PROG_NAME);
-
     let (ix, accounts) = setup(PAYER, ACC, DATA_LEN, None);
 
-    let InstructionResult {
-        compute_units_consumed,
-        raw_result,
-        resulting_accounts,
-        ..
-    } = svm.process_and_validate_instruction(&ix, &accounts, &[Check::all_rent_exempt()]);
+    SVM.with(|svm| {
+        let InstructionResult {
+            compute_units_consumed,
+            raw_result,
+            resulting_accounts,
+            ..
+        } = svm.process_and_validate_instruction(&ix, &accounts, &[Check::all_rent_exempt()]);
 
-    raw_result.unwrap();
+        raw_result.unwrap();
 
-    eprintln!("{compute_units_consumed} CUs");
+        eprintln!("{compute_units_consumed} CUs");
 
-    let acc = &resulting_accounts[ACC_IDX].1;
-    assert_eq!(PROG_ID, acc.owner);
+        let acc = &resulting_accounts[ACC_IDX].1;
+        assert_eq!(PROG_ID, acc.owner);
+
+        save_cus_to_file("basic", compute_units_consumed);
+    })
 }
 
 const PK_EXCL: [[u8; 32]; 2] = [[0; 32], PROG_ID.to_bytes()];
@@ -111,6 +116,8 @@ proptest! {
         // realloc after assigning to yourself
         size in 0usize..=1024 * 10,
     ) {
+        silence_mollusk_prog_logs();
+
         for pk in [payer, acc] {
             if PK_EXCL.contains(&pk) {
                 return Ok(());
@@ -119,20 +126,19 @@ proptest! {
 
         let [payer, acc] = [payer, acc].map(Pubkey::new_from_array);
 
-        let svm = Mollusk::new(&PROG_ID, PROG_NAME);
-        silence_mollusk_prog_logs();
-
         let (ix, accounts) = setup(payer, acc, size, None);
 
-        let InstructionResult {
-            raw_result,
-            resulting_accounts,
-            ..
-        } = svm.process_and_validate_instruction(&ix, &accounts, &[Check::all_rent_exempt()]);
+        SVM.with(|svm| {
+            let InstructionResult {
+                raw_result,
+                resulting_accounts,
+                ..
+            } = svm.process_and_validate_instruction(&ix, &accounts, &[Check::all_rent_exempt()]);
 
-        raw_result.unwrap();
+            raw_result.unwrap();
 
-        let acc = &resulting_accounts[ACC_IDX].1;
-        assert_eq!(PROG_ID, acc.owner);
+            let acc = &resulting_accounts[ACC_IDX].1;
+            assert_eq!(PROG_ID, acc.owner);
+        });
     }
 }

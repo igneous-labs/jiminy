@@ -1,8 +1,8 @@
-//! .so file size: 18_544
+//! .so file size: 23_240
 
 #![cfg(feature = "test-sbf")]
 
-use jiminy_test_utils::silence_mollusk_prog_logs;
+use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -17,8 +17,11 @@ const TEST_ACC_PK_1: Pubkey =
 const TEST_ACC_PK_2: Pubkey =
     solana_pubkey::pubkey!("FpaavSQvEQhPDoQoLUHhmBsKZsG2WJQXj7FBCSPE1TZ1");
 
+thread_local! {
+    static SVM: Mollusk = Mollusk::new(&PROG_ID, PROG_NAME);
+}
+
 // dont use msg!() in your programs, boys and girls
-/// CUs: 22_984
 #[test]
 fn log_hello_world_basic_cus() {
     const ACCS: [Pubkey; 2] = [TEST_ACC_PK_1, TEST_ACC_PK_2];
@@ -31,20 +34,18 @@ fn log_hello_world_basic_cus() {
     });
     let accounts = ACCS.map(|pubkey| (pubkey, Account::default()));
 
-    let svm = Mollusk::new(&PROG_ID, PROG_NAME);
-
-    let InstructionResult {
-        compute_units_consumed,
-        raw_result,
-        ..
-    } = svm.process_instruction(
-        &Instruction::new_with_bytes(PROG_ID, &ixd, metas.to_vec()),
-        &accounts,
-    );
-
-    raw_result.unwrap();
-
-    eprintln!("{compute_units_consumed} CUs");
+    SVM.with(|svm| {
+        let InstructionResult {
+            compute_units_consumed,
+            raw_result,
+            ..
+        } = svm.process_instruction(
+            &Instruction::new_with_bytes(PROG_ID, &ixd, metas.to_vec()),
+            &accounts,
+        );
+        raw_result.unwrap();
+        save_cus_to_file("basic", compute_units_consumed);
+    });
 }
 
 proptest! {
@@ -53,6 +54,8 @@ proptest! {
         accs in proptest::collection::vec(any::<[u8; 32]>(), 0..8),
         data in proptest::collection::vec(any::<u8>(), 0..128),
     ) {
+        silence_mollusk_prog_logs();
+
         let metas: Vec<_> = accs.iter().map(|pubkey| AccountMeta {
             pubkey: Pubkey::new_from_array(*pubkey),
             is_signer: false,
@@ -62,14 +65,13 @@ proptest! {
             |pubkey| (Pubkey::new_from_array(pubkey), Account::default())
         ).collect();
 
-        let svm = Mollusk::new(&PROG_ID, PROG_NAME);
-        silence_mollusk_prog_logs();
+        SVM.with(|svm| {
+            let InstructionResult { raw_result, .. } = svm.process_instruction(
+                &Instruction::new_with_bytes(PROG_ID, &data, metas),
+                &accs,
+            );
 
-        let InstructionResult { raw_result, .. } = svm.process_instruction(
-            &Instruction::new_with_bytes(PROG_ID, &data, metas),
-            &accs,
-        );
-
-        raw_result.unwrap();
+            raw_result.unwrap();
+        });
     }
 }

@@ -5,7 +5,7 @@
 use std::cmp::min;
 
 use jiminy_entrypoint::account::{MAX_PERMITTED_DATA_INCREASE, MAX_PERMITTED_DATA_LENGTH};
-use jiminy_test_utils::silence_mollusk_prog_logs;
+use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -14,6 +14,10 @@ use solana_pubkey::Pubkey;
 
 const PROG_NAME: &str = "realloc";
 const PROG_ID: Pubkey = solana_pubkey::pubkey!("7A87rRA9qxBzRaJr7a8dHcmsPW3QfbnH63SjFzZSoz4Q");
+
+thread_local! {
+    static SVM: Mollusk = Mollusk::new(&PROG_ID, PROG_NAME);
+}
 
 const TEST_ACC_PK: Pubkey = solana_pubkey::pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
 
@@ -41,7 +45,6 @@ fn expected_account_data(original: usize, r1: usize, r2: usize) -> Vec<u8> {
     res
 }
 
-/// CUs: 92
 #[test]
 fn realloc_basic_cus() {
     let a1 = test_realloc_acc(69);
@@ -53,24 +56,26 @@ fn realloc_basic_cus() {
     let ixd = ix_data(1, 31);
     let metas = vec![a1_meta.clone()];
 
-    let svm = Mollusk::new(&PROG_ID, PROG_NAME);
+    SVM.with(|svm| {
+        let InstructionResult {
+            compute_units_consumed,
+            raw_result,
+            resulting_accounts,
+            ..
+        } = svm.process_instruction(
+            &Instruction::new_with_bytes(PROG_ID, &ixd, metas),
+            &[(TEST_ACC_PK, a1)],
+        );
 
-    let InstructionResult {
-        compute_units_consumed,
-        raw_result,
-        resulting_accounts,
-        ..
-    } = svm.process_instruction(
-        &Instruction::new_with_bytes(PROG_ID, &ixd, metas),
-        &[(TEST_ACC_PK, a1)],
-    );
+        raw_result.unwrap();
 
-    raw_result.unwrap();
+        eprintln!("{compute_units_consumed} CUs");
 
-    eprintln!("{compute_units_consumed} CUs");
+        let data = &resulting_accounts[0].1.data;
+        assert_eq!(data, &expected_account_data(69, 1, 31));
 
-    let data = &resulting_accounts[0].1.data;
-    assert_eq!(data, &expected_account_data(69, 1, 31));
+        save_cus_to_file("basic", compute_units_consumed);
+    });
 }
 
 fn valid_reallocs() -> impl Strategy<Value = (usize, usize, usize)> {
@@ -92,6 +97,8 @@ fn valid_reallocs() -> impl Strategy<Value = (usize, usize, usize)> {
 proptest! {
     #[test]
     fn test_valid_reallocs((original, r1, r2) in valid_reallocs()) {
+        silence_mollusk_prog_logs();
+
         let a1 = test_realloc_acc(original);
         let a1_meta = AccountMeta {
             pubkey: TEST_ACC_PK,
@@ -101,22 +108,22 @@ proptest! {
         let ixd = ix_data(r1, r2);
         let metas = vec![a1_meta.clone()];
 
-        let svm = Mollusk::new(&PROG_ID, PROG_NAME);
-        silence_mollusk_prog_logs();
+        SVM.with(|svm| {
+            let InstructionResult {
+                raw_result,
+                resulting_accounts,
+                ..
+            } = svm.process_instruction(
+                &Instruction::new_with_bytes(PROG_ID, &ixd, metas),
+                &[(TEST_ACC_PK, a1)],
+            );
 
-        let InstructionResult {
-            raw_result,
-            resulting_accounts,
-            ..
-        } = svm.process_instruction(
-            &Instruction::new_with_bytes(PROG_ID, &ixd, metas),
-            &[(TEST_ACC_PK, a1)],
-        );
+            raw_result.unwrap();
 
-        raw_result.unwrap();
-
-        let data = &resulting_accounts[0].1.data;
-        prop_assert_eq!(data, &expected_account_data(original, r1, r2));
+            let data = &resulting_accounts[0].1.data;
+            prop_assert_eq!(data, &expected_account_data(original, r1, r2));
+            Ok(())
+        }).unwrap();
     }
 }
 
@@ -128,6 +135,8 @@ fn invalid_reallocs() -> impl Strategy<Value = (usize, usize)> {
 proptest! {
     #[test]
     fn test_invalid_reallocs((original, r1,) in invalid_reallocs()) {
+        silence_mollusk_prog_logs();
+
         let a1 = test_realloc_acc(original);
         let a1_meta = AccountMeta {
             pubkey: TEST_ACC_PK,
@@ -137,14 +146,14 @@ proptest! {
         let ixd = ix_data(r1, 0);
         let metas = vec![a1_meta.clone()];
 
-        let svm = Mollusk::new(&PROG_ID, PROG_NAME);
-        silence_mollusk_prog_logs();
+        SVM.with(|svm| {
+            let InstructionResult { raw_result, .. } = svm.process_instruction(
+                &Instruction::new_with_bytes(PROG_ID, &ixd, metas),
+                &[(TEST_ACC_PK, a1)],
+            );
 
-        let InstructionResult { raw_result, .. } = svm.process_instruction(
-            &Instruction::new_with_bytes(PROG_ID, &ixd, metas),
-            &[(TEST_ACC_PK, a1)],
-        );
-
-        prop_assert_eq!(raw_result.unwrap_err(), InstructionError::InvalidRealloc);
+            prop_assert_eq!(raw_result.unwrap_err(), InstructionError::InvalidRealloc);
+            Ok(())
+        }).unwrap();
     }
 }
