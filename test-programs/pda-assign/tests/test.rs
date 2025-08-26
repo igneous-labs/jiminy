@@ -13,6 +13,10 @@ use solana_pubkey::Pubkey;
 const PROG_NAME: &str = "pda_assign";
 const PROG_ID: Pubkey = solana_pubkey::pubkey!("xtjwVYz95ZdAGoGzwP5HFm1mrNMWpB3L4aDMRwbhd6d");
 
+thread_local! {
+    static SVM: Mollusk = Mollusk::new(&PROG_ID, PROG_NAME);
+}
+
 /// CUs: 4739
 #[test]
 fn pda_assign_basic_cus() {
@@ -42,40 +46,40 @@ fn pda_assign_basic_cus() {
 
     let (pda, _bump) = Pubkey::find_program_address(SEEDS, &PROG_ID);
 
-    let svm = Mollusk::new(&PROG_ID, PROG_NAME);
-
-    let InstructionResult {
-        compute_units_consumed,
-        raw_result,
-        resulting_accounts,
-        ..
-    } = svm.process_instruction(
-        &Instruction::new_with_bytes(
-            PROG_ID,
-            &SEED_IX_DATA,
-            vec![
-                AccountMeta {
-                    pubkey: solana_system_program::id(),
-                    is_signer: false,
-                    is_writable: false,
-                },
-                AccountMeta {
-                    pubkey: pda,
-                    is_signer: false,
-                    is_writable: true,
-                },
+    SVM.with(|svm| {
+        let InstructionResult {
+            compute_units_consumed,
+            raw_result,
+            resulting_accounts,
+            ..
+        } = svm.process_instruction(
+            &Instruction::new_with_bytes(
+                PROG_ID,
+                &SEED_IX_DATA,
+                vec![
+                    AccountMeta {
+                        pubkey: solana_system_program::id(),
+                        is_signer: false,
+                        is_writable: false,
+                    },
+                    AccountMeta {
+                        pubkey: pda,
+                        is_signer: false,
+                        is_writable: true,
+                    },
+                ],
+            ),
+            &[
+                keyed_account_for_system_program(),
+                (pda, Account::default()),
             ],
-        ),
-        &[
-            keyed_account_for_system_program(),
-            (pda, Account::default()),
-        ],
-    );
+        );
 
-    raw_result.unwrap();
-    eprintln!("{compute_units_consumed} CUs");
+        raw_result.unwrap();
+        eprintln!("{compute_units_consumed} CUs");
 
-    assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
+        assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
+    });
 }
 
 /// CUs: 8287
@@ -105,80 +109,16 @@ fn pda_assign_max_seeds_cus() {
         &PROG_ID,
     );
 
-    let svm = Mollusk::new(&PROG_ID, PROG_NAME);
-
-    let InstructionResult {
-        compute_units_consumed,
-        raw_result,
-        resulting_accounts,
-        ..
-    } = svm.process_instruction(
-        &Instruction::new_with_bytes(
-            PROG_ID,
-            &SEED_IX_DATA,
-            vec![
-                AccountMeta {
-                    pubkey: solana_system_program::id(),
-                    is_signer: false,
-                    is_writable: false,
-                },
-                AccountMeta {
-                    pubkey: pda,
-                    is_signer: false,
-                    is_writable: true,
-                },
-            ],
-        ),
-        &[
-            keyed_account_for_system_program(),
-            (pda, Account::default()),
-        ],
-    );
-
-    raw_result.unwrap();
-    eprintln!("{compute_units_consumed} CUs");
-
-    assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
-}
-
-struct SeedsIxData(Vec<u8>);
-
-impl<'a> FromIterator<&'a [u8]> for SeedsIxData {
-    fn from_iter<T: IntoIterator<Item = &'a [u8]>>(iter: T) -> Self {
-        let mut v = vec![];
-        for seed in iter {
-            v.push(seed.len() as u8);
-            v.extend(seed);
-        }
-        Self(v)
-    }
-}
-
-proptest! {
-    #[test]
-    fn pda_assign_correct(
-        seeds in proptest::collection::vec(proptest::collection::vec(any::<u8>(), 0..=MAX_SEED_LEN), 0..MAX_SEEDS),
-        prog_id: [u8; 32]
-    ) {
-        let prog_id = Pubkey::new_from_array(prog_id);
-        let SeedsIxData(ix_data) = seeds.iter().map(|v| v.as_slice()).collect();
-        let seeds_for_solana_sdk: Vec<_> = seeds.iter().map(|v| v.as_slice()).collect();
-        let (pda, _bump) = Pubkey::find_program_address(
-            &seeds_for_solana_sdk,
-            &prog_id,
-        );
-
-        let svm = Mollusk::new(&prog_id, PROG_NAME);
-        silence_mollusk_prog_logs();
-
+    SVM.with(|svm| {
         let InstructionResult {
+            compute_units_consumed,
             raw_result,
             resulting_accounts,
             ..
         } = svm.process_instruction(
             &Instruction::new_with_bytes(
-                prog_id,
-                &ix_data,
+                PROG_ID,
+                &SEED_IX_DATA,
                 vec![
                     AccountMeta {
                         pubkey: solana_system_program::id(),
@@ -199,7 +139,72 @@ proptest! {
         );
 
         raw_result.unwrap();
+        eprintln!("{compute_units_consumed} CUs");
 
-        prop_assert_eq!(resulting_accounts[1].1.owner, prog_id);
+        assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
+    });
+}
+
+struct SeedsIxData(Vec<u8>);
+
+impl<'a> FromIterator<&'a [u8]> for SeedsIxData {
+    fn from_iter<T: IntoIterator<Item = &'a [u8]>>(iter: T) -> Self {
+        let mut v = vec![];
+        for seed in iter {
+            v.push(seed.len() as u8);
+            v.extend(seed);
+        }
+        Self(v)
+    }
+}
+
+proptest! {
+    #[test]
+    fn pda_assign_correct(
+        seeds in proptest::collection::vec(proptest::collection::vec(any::<u8>(), 0..=MAX_SEED_LEN), 0..MAX_SEEDS),
+    ) {
+        silence_mollusk_prog_logs();
+
+        let SeedsIxData(ix_data) = seeds.iter().map(|v| v.as_slice()).collect();
+        let seeds_for_solana_sdk: Vec<_> = seeds.iter().map(|v| v.as_slice()).collect();
+        let (pda, _bump) = Pubkey::find_program_address(
+            &seeds_for_solana_sdk,
+            &PROG_ID,
+        );
+
+        SVM.with(|svm| {
+            let InstructionResult {
+                raw_result,
+                resulting_accounts,
+                ..
+            } = svm.process_instruction(
+                &Instruction::new_with_bytes(
+                    PROG_ID,
+                    &ix_data,
+                    vec![
+                        AccountMeta {
+                            pubkey: solana_system_program::id(),
+                            is_signer: false,
+                            is_writable: false,
+                        },
+                        AccountMeta {
+                            pubkey: pda,
+                            is_signer: false,
+                            is_writable: true,
+                        },
+                    ],
+                ),
+                &[
+                    keyed_account_for_system_program(),
+                    (pda, Account::default()),
+                ],
+            );
+
+            raw_result.unwrap();
+
+            prop_assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
+
+            Ok(())
+        }).unwrap();
     }
 }

@@ -2,7 +2,7 @@
 
 #![cfg(feature = "test-sbf")]
 
-use std::collections::HashSet;
+use std::{cell::RefCell, collections::HashSet};
 
 use instructions_test::IxArgs;
 use jiminy_sysvar_instructions::sysvar::OWNER_ID;
@@ -19,6 +19,10 @@ const PROG_NAME: &str = "instructions_test";
 const PROG_ID: Pubkey = solana_pubkey::pubkey!("GRQbyvXVpwuQdRTHuVLzYLX7zoduu9caY73mQM8vL6jA");
 const NOOP_PROG_NAME: &str = "noop";
 
+thread_local! {
+    static SVM: RefCell<Mollusk> = RefCell::new(Mollusk::new(&PROG_ID, PROG_NAME));
+}
+
 fn instr(args: &IxArgs) -> Instruction {
     Instruction::new_with_bytes(
         PROG_ID,
@@ -34,8 +38,6 @@ fn instr(args: &IxArgs) -> Instruction {
 /// CUs: 168
 #[test]
 fn instructions_test_basic_no_other_ixs_cus() {
-    let svm = Mollusk::new(&PROG_ID, PROG_NAME);
-
     let curr_idx = 0;
     let ix = instr(&IxArgs {
         ixs_len: 1,
@@ -50,15 +52,18 @@ fn instructions_test_basic_no_other_ixs_cus() {
     let ixs = &[ix];
     let ixs_sysvar = instructions_sysvar(ixs, curr_idx);
 
-    let InstructionResult {
-        raw_result,
-        compute_units_consumed,
-        ..
-    } = svm.process_instruction_chain(ixs, &[ixs_sysvar]);
+    SVM.with(|svm| {
+        let svm = svm.borrow();
+        let InstructionResult {
+            raw_result,
+            compute_units_consumed,
+            ..
+        } = svm.process_instruction_chain(ixs, &[ixs_sysvar]);
 
-    raw_result.unwrap();
+        raw_result.unwrap();
 
-    eprintln!("{compute_units_consumed} CUs");
+        eprintln!("{compute_units_consumed} CUs");
+    });
 }
 
 proptest! {
@@ -66,21 +71,24 @@ proptest! {
     fn instructions_all_nonempty_accounts(
         (ixs, accs) in any_test_ix_seq()
     ) {
-        let mut svm = Mollusk::new(&PROG_ID, PROG_NAME);
         silence_mollusk_prog_logs();
-        let mut program_ids = HashSet::new();
-        ixs.iter().for_each(|ix| {
-            if program_ids.insert(ix.program_id) {
-                svm.add_program(&ix.program_id, NOOP_PROG_NAME, &bpf_loader_upgradeable::ID);
-            }
+
+        SVM.with(|svm| {
+            let mut svm = svm.borrow_mut();
+            let mut program_ids = HashSet::new();
+            ixs.iter().for_each(|ix| {
+                if program_ids.insert(ix.program_id) {
+                    svm.add_program(&ix.program_id, NOOP_PROG_NAME, &bpf_loader_upgradeable::ID);
+                }
+            });
+
+            let InstructionResult {
+                raw_result,
+                ..
+            } = svm.process_instruction_chain(&ixs, &accs);
+
+            raw_result.unwrap();
         });
-
-        let InstructionResult {
-            raw_result,
-            ..
-        } = svm.process_instruction_chain(&ixs, &accs);
-
-        raw_result.unwrap();
     }
 }
 
