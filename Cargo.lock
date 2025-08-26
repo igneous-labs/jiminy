@@ -375,14 +375,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bs58-fixed"
-version = "0.1.0"
-source = "git+https://github.com/igneous-labs/bs58-fixed.git?branch=master#a25c9f637e464d4d89e834003e3f7dbd1db74225"
-dependencies = [
- "bs58",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1554,7 +1546,7 @@ checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 name = "log-hello-world"
 version = "0.1.0"
 dependencies = [
- "bs58-fixed",
+ "five8",
  "jiminy-entrypoint",
  "jiminy-log",
  "jiminy-test-utils",
@@ -1599,9 +1591,9 @@ dependencies = [
 
 [[package]]
 name = "mollusk-svm"
-version = "0.4.2"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ac533eca9acad4fb7b4714557cd6263d494c59c02c96036196d4143b68795a8"
+checksum = "7c01cfd03829e0c7c5a0decb92cdc2963501268fb48851eea03f9017bd0eae83"
 dependencies = [
  "agave-feature-set",
  "agave-precompiles",
@@ -1639,9 +1631,9 @@ dependencies = [
 
 [[package]]
 name = "mollusk-svm-error"
-version = "0.4.2"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4135aa8a9c9069b30109262e63795959040888586ea8f90809c4365a6d439ee9"
+checksum = "237a9aeed06a7181fa7b5dc4437ccf39cba9cf2062938aa44bc5373bffebacd1"
 dependencies = [
  "solana-pubkey",
  "thiserror 1.0.69",
@@ -1649,9 +1641,9 @@ dependencies = [
 
 [[package]]
 name = "mollusk-svm-keys"
-version = "0.4.2"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b230d33b0194b126be2c37a19bf4d59d8e80a5ce63e8d3d4135a6cbf89ed3302"
+checksum = "cf086261ca149a8b03c75ef17b3ac83ca985ff46598c3a298f6e85bdc69d7420"
 dependencies = [
  "mollusk-svm-error",
  "solana-account",
@@ -1662,9 +1654,9 @@ dependencies = [
 
 [[package]]
 name = "mollusk-svm-result"
-version = "0.4.2"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4c788b78a077f73b466dbfa7510804136075fd8e6f3eca8392018991c46fef3"
+checksum = "46d33c72e491320ce1a884c60e0e23768c44c0990accb0ecbd20e698b21a2c25"
 dependencies = [
  "solana-account",
  "solana-instruction",
