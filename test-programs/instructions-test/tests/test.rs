@@ -1,3 +1,5 @@
+//! Make sure to build the noop test-program before running tests here.
+
 #![cfg(feature = "test-sbf")]
 
 use std::{cell::RefCell, collections::HashSet};
