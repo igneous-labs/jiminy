@@ -10,7 +10,7 @@ use jiminy_pda::{
     create_program_address_to, create_raw_program_address_to, try_find_program_address_to, PdaSeed,
     PdaSeedArr, PdaSigner,
 };
-use jiminy_system_prog_interface::{assign_ix, AssignIxAccs, AssignIxData};
+use jiminy_system_prog_interface::{AssignIxAccs, AssignIxData};
 
 pub const MAX_ACCS: usize = 2;
 pub const MAX_CPI_ACCS: usize = 2;
@@ -80,9 +80,12 @@ fn process_ix(
     // use sys_prog as placeholder to avoid unsafe code
     let assign_accounts = AssignIxAccs::memset(sys_prog).with_assign(pda);
     // assign pda to this prog
+    let sys_prog_key = *accounts.get(sys_prog).key();
     Cpi::<MAX_CPI_ACCS>::new().invoke_signed(
         accounts,
-        assign_ix(sys_prog, assign_accounts, &AssignIxData::new(prog_id)),
+        &sys_prog_key,
+        AssignIxData::new(prog_id).as_buf(),
+        assign_accounts.into_account_handle_perms(),
         // last 2 item on `seeds` are program ID and PDA_MARKER, so omit those
         &[PdaSigner::new(seeds.split_last_chunk::<2>().unwrap().0)],
     )?;

@@ -22,10 +22,8 @@ use pda::*;
 
 mod cpi_account;
 mod cpi_account_meta;
-mod instruction;
 
 pub use cpi_account_meta::*;
-pub use instruction::*;
 
 use cpi_account::*;
 
@@ -100,30 +98,6 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
     pub fn invoke_signed<'account, const MAX_ACCOUNTS: usize>(
         &mut self,
         accounts: &mut Accounts<'account, MAX_ACCOUNTS>,
-        Instr {
-            prog: cpi_prog,
-            data: cpi_ix_data,
-            accounts: cpi_accounts,
-        }: Instr<'_, '_, impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>>,
-        signers_seeds: &[PdaSigner],
-    ) -> Result<(), ProgramError> {
-        let cpi_prog_id = *accounts.get(cpi_prog).key();
-        self.invoke_signed_raw(
-            accounts,
-            &cpi_prog_id,
-            cpi_ix_data,
-            cpi_accounts,
-            signers_seeds,
-        )
-    }
-
-    /// Same as [`Self::invoke_signed`], but with args exploded instead of
-    /// in an [`Instr`] struct + doesn't require [`AccountHandle`] for program being invoked
-    /// (useful for self CPIs)
-    #[inline]
-    pub fn invoke_signed_raw<'account, const MAX_ACCOUNTS: usize>(
-        &mut self,
-        accounts: &mut Accounts<'account, MAX_ACCOUNTS>,
         cpi_prog_id: &[u8; 32],
         cpi_ix_data: &[u8],
         cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
@@ -150,6 +124,44 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
                 self.accounts[len].write(CpiAccount::from_mut_account(acc));
                 Ok(len + 1)
             })?;
+
+        unsafe {
+            invoke_signed_raw(
+                cpi_prog_id,
+                cpi_ix_data,
+                core::slice::from_raw_parts(self.metas.as_ptr().cast(), len),
+                core::slice::from_raw_parts(self.accounts.as_ptr().cast(), len),
+                signers_seeds,
+            )
+        }
+    }
+
+    /// Same as [`Self::invoke_signed`], but simply forwards the [`AccountPerms`] of the
+    /// account within the `accounts` context instead of relying on another source
+    #[inline]
+    pub fn invoke_signed_fwd<'account, const MAX_ACCOUNTS: usize>(
+        &mut self,
+        accounts: &mut Accounts<'account, MAX_ACCOUNTS>,
+        cpi_prog_id: &[u8; 32],
+        cpi_ix_data: &[u8],
+        cpi_accounts: impl IntoIterator<Item = AccountHandle<'account>>,
+        signers_seeds: &[PdaSigner],
+    ) -> Result<(), ProgramError> {
+        let len = cpi_accounts.into_iter().try_fold(0, |len, handle| {
+            if len >= MAX_CPI_ACCOUNTS {
+                return Err(ProgramError::from_builtin(
+                    BuiltInProgramError::InvalidArgument,
+                ));
+            }
+            let acc = accounts.get_ptr(handle);
+
+            // this fn's code should be the exact same as [`Self::invoke_signed`]
+            // except for this line here:
+            self.metas[len].write(CpiAccountMeta::fwd(acc));
+
+            self.accounts[len].write(CpiAccount::from_mut_account(acc));
+            Ok(len + 1)
+        })?;
 
         unsafe {
             invoke_signed_raw(

@@ -15,11 +15,7 @@ pub use assign::*;
 pub use create_account::*;
 pub use transfer::*;
 
-pub type Instruction<'account, 'data, const ACCOUNTS: usize> = jiminy_cpi::Instr<
-    'account,
-    'data,
-    Zip<
-        array::IntoIter<AccountHandle<'account>, ACCOUNTS>,
-        array::IntoIter<AccountPerms, ACCOUNTS>,
-    >,
+pub type AccountHandlePerms<'account, const ACCOUNTS: usize> = Zip<
+    array::IntoIter<AccountHandle<'account>, ACCOUNTS>,
+    array::IntoIter<AccountPerms, ACCOUNTS>,
 >;
