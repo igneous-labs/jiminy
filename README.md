@@ -106,22 +106,6 @@ ProgramError::from_builtin(BuiltInProgramError::InvalidArgument)
 
 ### CPI Overhaul
 
-#### No More "program account not found" errors
-
-How many times have you ran into the `AccountNotFound` error during program development because you forgot to pass in the
-actual program you were invoking as an account to the instruction? jiminy rectifies this by simply requiring you to pass
-in the `AccountHandle` of the program being invoked to CPI calls as part of the `Instr` struct too.
-
-```rust
-/// A CPI instruction
-#[derive(Debug, Clone, Copy)]
-pub struct Instr<'account, 'data, I> {
-    pub prog: AccountHandle<'account>,
-    pub accounts: I,
-    pub data: &'data [u8],
-}
-```
-
 #### Reusable CPI Buffers
 
 The CPI syscall expects inputs in a very specific format. Most of the work of each library's `invoke_signed()` function is in converting program input data
@@ -153,13 +137,7 @@ cpi.invoke_signed(
 
 ## Benchmarks
 
-[Current eisodos benchmark results with `solana v2.2.6`](https://github.com/febo/eisodos/pull/2)
-
-Compared to the most performant existing library (pinocchio), jiminy:
-
-- produces binaries nearly 3x smaller
-- has comparable performance for account deserialization (1 CU more per account deserialized)
-- uses fewer CUs in both CPI benchmarks
+[Current eisodos benchmark results](https://github.com/febo/eisodos)
 
 ## Development
 

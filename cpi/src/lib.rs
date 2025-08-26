@@ -22,10 +22,8 @@ use pda::*;
 
 mod cpi_account;
 mod cpi_account_meta;
-mod instruction;
 
 pub use cpi_account_meta::*;
-pub use instruction::*;
 
 use cpi_account::*;
 
@@ -98,30 +96,6 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
 
     #[inline]
     pub fn invoke_signed<'account, const MAX_ACCOUNTS: usize>(
-        &mut self,
-        accounts: &mut Accounts<'account, MAX_ACCOUNTS>,
-        Instr {
-            prog: cpi_prog,
-            data: cpi_ix_data,
-            accounts: cpi_accounts,
-        }: Instr<'_, '_, impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>>,
-        signers_seeds: &[PdaSigner],
-    ) -> Result<(), ProgramError> {
-        let cpi_prog_id = *accounts.get(cpi_prog).key();
-        self.invoke_signed_raw(
-            accounts,
-            &cpi_prog_id,
-            cpi_ix_data,
-            cpi_accounts,
-            signers_seeds,
-        )
-    }
-
-    /// Same as [`Self::invoke_signed`], but with args exploded instead of
-    /// in an [`Instr`] struct + doesn't require [`AccountHandle`] for program being invoked
-    /// (useful for self CPIs)
-    #[inline]
-    pub fn invoke_signed_raw<'account, const MAX_ACCOUNTS: usize>(
         &mut self,
         accounts: &mut Accounts<'account, MAX_ACCOUNTS>,
         cpi_prog_id: &[u8; 32],

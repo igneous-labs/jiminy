@@ -1,7 +1,9 @@
 use generic_array_struct::generic_array_struct;
 use jiminy_cpi::{account::AccountHandle, AccountPerms};
 
-use super::{internal_utils::signer_writable_to_perms, Instruction};
+use crate::AccountHandlePerms;
+
+use super::internal_utils::signer_writable_to_perms;
 
 pub const ASSIGN_IX_DISCM: [u8; 4] = [1, 0, 0, 0];
 
@@ -54,15 +56,9 @@ impl AssignIxData {
     }
 }
 
-#[inline]
-pub fn assign_ix<'account, 'data>(
-    system_prog: AccountHandle<'account>,
-    accounts: AssignIxAccounts<'account>,
-    ix_data: &'data AssignIxData,
-) -> Instruction<'account, 'data, ASSIGN_IX_ACCS_LEN> {
-    Instruction {
-        prog: system_prog,
-        data: ix_data.as_buf(),
-        accounts: accounts.0.into_iter().zip(ASSIGN_IX_ACCOUNT_PERMS.0),
+impl<'accounts> AssignIxAccounts<'accounts> {
+    #[inline]
+    pub fn into_account_handle_perms(self) -> AccountHandlePerms<'accounts, ASSIGN_IX_ACCS_LEN> {
+        self.0.into_iter().zip(ASSIGN_IX_ACCOUNT_PERMS.0)
     }
 }

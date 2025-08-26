@@ -5,9 +5,7 @@
 #![allow(unexpected_cfgs)]
 
 use jiminy_entrypoint::program_error::{BuiltInProgramError, ProgramError};
-use jiminy_system_prog_interface::{
-    create_account_ix, CreateAccountIxAccounts, CreateAccountIxData,
-};
+use jiminy_system_prog_interface::{CreateAccountIxData, NewCreateAccountIxAccsBuilder};
 use jiminy_sysvar_rent::{sysvar::SimpleSysvar, Rent};
 
 pub const MAX_ACCS: usize = 3;
@@ -51,15 +49,16 @@ fn process_ix(
         }
     };
 
+    let sys_prog_key = *accounts.get(sys_prog).key();
     Cpi::new().invoke_signed(
         accounts,
-        create_account_ix(
-            sys_prog,
-            CreateAccountIxAccounts::memset(sys_prog)
-                .with_funding(payer)
-                .with_new(acc),
-            &CreateAccountIxData::new(lamports, space as usize, prog_id),
-        ),
+        &sys_prog_key,
+        CreateAccountIxData::new(lamports, space as usize, prog_id).as_buf(),
+        NewCreateAccountIxAccsBuilder::start()
+            .with_funding(payer)
+            .with_new(acc)
+            .build()
+            .into_account_handle_perms(),
         &[],
     )
 }
