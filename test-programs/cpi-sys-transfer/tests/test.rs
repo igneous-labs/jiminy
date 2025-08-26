@@ -2,7 +2,7 @@
 
 #![cfg(feature = "test-sbf")]
 
-use jiminy_test_utils::silence_mollusk_prog_logs;
+use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs};
 use mollusk_svm::{program::keyed_account_for_system_program, result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -16,7 +16,6 @@ thread_local! {
     static SVM: Mollusk = Mollusk::new(&PROG_ID, PROG_NAME);
 }
 
-/// CUs: 1322
 #[test]
 fn transfer_basic_cus() {
     const TRF_AMT: u64 = 1_000_000_000;
@@ -72,12 +71,10 @@ fn transfer_basic_cus() {
                 (to_pk, to),
             ],
         );
-
         raw_result.unwrap();
-        eprintln!("{compute_units_consumed} CUs");
-
         assert_eq!(resulting_accounts[1].1.lamports, 0);
         assert_eq!(resulting_accounts[2].1.lamports, TRF_AMT);
+        save_cus_to_file("basic", compute_units_consumed);
     });
 }
 

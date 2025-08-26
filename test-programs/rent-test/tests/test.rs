@@ -2,7 +2,7 @@
 
 #![cfg(feature = "test-sbf")]
 
-use jiminy_test_utils::{silence_mollusk_prog_logs, two_different_pubkeys};
+use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs, two_different_pubkeys};
 use mollusk_svm::{
     program::keyed_account_for_system_program,
     result::{Check, InstructionResult},
@@ -74,7 +74,6 @@ fn setup(
     )
 }
 
-/// CUs: 1451
 #[test]
 fn rent_test_basic_cus() {
     const PAYER: Pubkey = solana_pubkey::pubkey!("CkebHSWNvZ5w9Q3GTivrEomZZmwWFNqPpzVA9NFZxpg8");
@@ -97,6 +96,8 @@ fn rent_test_basic_cus() {
 
         let acc = &resulting_accounts[ACC_IDX].1;
         assert_eq!(PROG_ID, acc.owner);
+
+        save_cus_to_file("basic", compute_units_consumed);
     })
 }
 

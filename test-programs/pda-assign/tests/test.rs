@@ -3,7 +3,7 @@
 #![cfg(feature = "test-sbf")]
 
 use jiminy_pda::{MAX_SEEDS, MAX_SEED_LEN};
-use jiminy_test_utils::silence_mollusk_prog_logs;
+use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs};
 use mollusk_svm::{program::keyed_account_for_system_program, result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -17,7 +17,6 @@ thread_local! {
     static SVM: Mollusk = Mollusk::new(&PROG_ID, PROG_NAME);
 }
 
-/// CUs: 4739
 #[test]
 fn pda_assign_basic_cus() {
     // 2 seeds, one of len 0, other of len 32
@@ -76,13 +75,11 @@ fn pda_assign_basic_cus() {
         );
 
         raw_result.unwrap();
-        eprintln!("{compute_units_consumed} CUs");
-
         assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
+        save_cus_to_file("basic", compute_units_consumed);
     });
 }
 
-/// CUs: 8287
 #[test]
 fn pda_assign_max_seeds_cus() {
     // (MAX_SEEDS - 1) seeds
@@ -139,9 +136,10 @@ fn pda_assign_max_seeds_cus() {
         );
 
         raw_result.unwrap();
-        eprintln!("{compute_units_consumed} CUs");
 
         assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
+
+        save_cus_to_file("max-seeds", compute_units_consumed);
     });
 }
 

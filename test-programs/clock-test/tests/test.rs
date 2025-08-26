@@ -4,7 +4,7 @@
 
 use std::cell::RefCell;
 
-use jiminy_test_utils::silence_mollusk_prog_logs;
+use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_clock::Clock as SolanaClock;
@@ -22,7 +22,6 @@ fn instr() -> Instruction {
     Instruction::new_with_bytes(PROG_ID, &[], vec![])
 }
 
-/// CUs: 224
 #[test]
 fn clock_test_basic_cus() {
     let ix = instr();
@@ -34,12 +33,9 @@ fn clock_test_basic_cus() {
             return_data,
             ..
         } = svm.process_instruction(&ix, &[]);
-
         raw_result.unwrap();
-
-        eprintln!("{compute_units_consumed} CUs");
-
         assert_eq!(bincode::serialize(&svm.sysvars.clock).unwrap(), return_data);
+        save_cus_to_file("basic", compute_units_consumed);
     });
 }
 

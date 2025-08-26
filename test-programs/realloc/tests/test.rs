@@ -5,7 +5,7 @@
 use std::cmp::min;
 
 use jiminy_entrypoint::account::{MAX_PERMITTED_DATA_INCREASE, MAX_PERMITTED_DATA_LENGTH};
-use jiminy_test_utils::silence_mollusk_prog_logs;
+use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -45,7 +45,6 @@ fn expected_account_data(original: usize, r1: usize, r2: usize) -> Vec<u8> {
     res
 }
 
-/// CUs: 92
 #[test]
 fn realloc_basic_cus() {
     let a1 = test_realloc_acc(69);
@@ -74,6 +73,8 @@ fn realloc_basic_cus() {
 
         let data = &resulting_accounts[0].1.data;
         assert_eq!(data, &expected_account_data(69, 1, 31));
+
+        save_cus_to_file("basic", compute_units_consumed);
     });
 }
 

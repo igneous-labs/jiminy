@@ -2,7 +2,7 @@
 
 #![cfg(feature = "test-sbf")]
 
-use jiminy_test_utils::silence_mollusk_prog_logs;
+use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -22,7 +22,6 @@ thread_local! {
 }
 
 // dont use msg!() in your programs, boys and girls
-/// CUs: 4432
 #[test]
 fn log_hello_world_basic_cus() {
     const ACCS: [Pubkey; 2] = [TEST_ACC_PK_1, TEST_ACC_PK_2];
@@ -44,10 +43,8 @@ fn log_hello_world_basic_cus() {
             &Instruction::new_with_bytes(PROG_ID, &ixd, metas.to_vec()),
             &accounts,
         );
-
         raw_result.unwrap();
-
-        eprintln!("{compute_units_consumed} CUs");
+        save_cus_to_file("basic", compute_units_consumed);
     });
 }
 

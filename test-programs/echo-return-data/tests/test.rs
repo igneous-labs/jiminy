@@ -6,7 +6,7 @@ use std::{cmp::min, collections::HashMap};
 
 use echo_return_data::MAX_ACCS;
 use jiminy_return_data::MAX_RETURN_DATA;
-use jiminy_test_utils::silence_mollusk_prog_logs;
+use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -21,7 +21,6 @@ thread_local! {
     static SVM: Mollusk = Mollusk::new(&PROG_ID, PROG_NAME);
 }
 
-/// CUs: 483
 #[test]
 fn entrypoint_basic_cus() {
     let a1_is_exec = false;
@@ -70,8 +69,6 @@ fn entrypoint_basic_cus() {
 
         raw_result.unwrap();
 
-        eprintln!("{compute_units_consumed} CUs");
-
         for (i, (meta, is_exec)) in [(a1_meta, a1_is_exec), (a2_meta, a2_is_exec)]
             .iter()
             .enumerate()
@@ -97,6 +94,8 @@ fn entrypoint_basic_cus() {
             &return_data[ret_data_prog_id_start..ret_data_prog_id_start + 32],
             PROG_ID.to_bytes()
         );
+
+        save_cus_to_file("basic", compute_units_consumed);
     });
 }
 
