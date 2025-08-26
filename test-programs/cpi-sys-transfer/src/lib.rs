@@ -35,12 +35,11 @@ fn process_ix(
         [transfer_accs.from(), transfer_accs.to()].map(|handle| accounts.get(*handle).lamports());
 
     let sys_prog_key = *accounts.get(sys_prog).key();
-    Cpi::<MAX_CPI_ACCS>::new().invoke_signed_fwd(
+    Cpi::<MAX_CPI_ACCS>::new().invoke_fwd(
         accounts,
         &sys_prog_key,
         TransferIxData::new(trf_amt).as_buf(),
         transfer_accs.0,
-        &[],
     )?;
 
     if accounts.get(*transfer_accs.from()).lamports() != from_lamports_bef - trf_amt {

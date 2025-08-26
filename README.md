@@ -40,12 +40,11 @@ fn process_ix(
     };
 
     let sys_prog_key = *accounts.get(sys_prog).key();
-    Cpi::<MAX_CPI_ACCS>::new().invoke_signed_fwd(
+    Cpi::<MAX_CPI_ACCS>::new().invoke_fwd(
         accounts,
         &sys_prog_key,
         TransferIxData::new(trf_amt).as_buf(),
         transfer_accs.0,
-        &[],
     )?;
 
     Ok(())
@@ -116,12 +115,11 @@ memory footprint.
 // required than what is available on the stack.
 let mut cpi: Cpi = Cpi::new();
 
-cpi.invoke_signed_fwd(
+cpi.invoke_fwd(
     accounts,
     &sys_prog_key,
     TransferIxData::new(ONE_SOL_IN_LAMPORTS).as_buf(),
     transfer_accs.0,
-    &[],
 )?;
 
 // use the same allocation again for a completely different CPI
