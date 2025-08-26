@@ -1,11 +1,9 @@
-//! .so file size: 2240
-
 #![cfg(feature = "test-sbf")]
 
 use std::cmp::min;
 
 use jiminy_entrypoint::account::{MAX_PERMITTED_DATA_INCREASE, MAX_PERMITTED_DATA_LENGTH};
-use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs};
+use jiminy_test_utils::{save_binsize_to_file, save_cus_to_file, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -43,6 +41,11 @@ fn expected_account_data(original: usize, r1: usize, r2: usize) -> Vec<u8> {
     let end_1 = min(r1, original);
     res[0..min(end_1, r2)].fill(1);
     res
+}
+
+#[test]
+fn save_binsize() {
+    save_binsize_to_file(PROG_NAME);
 }
 
 #[test]

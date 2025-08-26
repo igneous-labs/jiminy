@@ -1,8 +1,8 @@
-//! .so file size: 6632
-
 #![cfg(feature = "test-sbf")]
 
-use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs, two_different_pubkeys};
+use jiminy_test_utils::{
+    save_binsize_to_file, save_cus_to_file, silence_mollusk_prog_logs, two_different_pubkeys,
+};
 use mollusk_svm::{
     program::keyed_account_for_system_program,
     result::{Check, InstructionResult},
@@ -72,6 +72,11 @@ fn setup(
             keyed_account_for_system_program(),
         ],
     )
+}
+
+#[test]
+fn save_binsize() {
+    save_binsize_to_file(PROG_NAME);
 }
 
 #[test]
