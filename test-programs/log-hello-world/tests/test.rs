@@ -1,8 +1,6 @@
-//! .so file size: 23_240
-
 #![cfg(feature = "test-sbf")]
 
-use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs};
+use jiminy_test_utils::{save_binsize_to_file, save_cus_to_file, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -19,6 +17,11 @@ const TEST_ACC_PK_2: Pubkey =
 
 thread_local! {
     static SVM: Mollusk = Mollusk::new(&PROG_ID, PROG_NAME);
+}
+
+#[test]
+fn save_binsize() {
+    save_binsize_to_file(PROG_NAME);
 }
 
 // dont use msg!() in your programs, boys and girls

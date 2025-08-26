@@ -1,10 +1,8 @@
-//! .so file size: 1592
-
 #![cfg(feature = "test-sbf")]
 
 use std::cell::RefCell;
 
-use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs};
+use jiminy_test_utils::{save_binsize_to_file, save_cus_to_file, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_clock::Clock as SolanaClock;
@@ -20,6 +18,11 @@ thread_local! {
 
 fn instr() -> Instruction {
     Instruction::new_with_bytes(PROG_ID, &[], vec![])
+}
+
+#[test]
+fn save_binsize() {
+    save_binsize_to_file(PROG_NAME);
 }
 
 #[test]

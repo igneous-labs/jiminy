@@ -1,9 +1,7 @@
-//! .so file size: 14_448
-
 #![cfg(feature = "test-sbf")]
 
 use jiminy_pda::{MAX_SEEDS, MAX_SEED_LEN};
-use jiminy_test_utils::{save_cus_to_file, silence_mollusk_prog_logs};
+use jiminy_test_utils::{save_binsize_to_file, save_cus_to_file, silence_mollusk_prog_logs};
 use mollusk_svm::{program::keyed_account_for_system_program, result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -15,6 +13,11 @@ const PROG_ID: Pubkey = solana_pubkey::pubkey!("xtjwVYz95ZdAGoGzwP5HFm1mrNMWpB3L
 
 thread_local! {
     static SVM: Mollusk = Mollusk::new(&PROG_ID, PROG_NAME);
+}
+
+#[test]
+fn save_binsize() {
+    save_binsize_to_file(PROG_NAME);
 }
 
 #[test]
