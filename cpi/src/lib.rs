@@ -107,7 +107,7 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
             .with_prog_id(cpi_prog_id)
             .with_ix_data(cpi_ix_data)
             .with_pda_signers(signers_seeds)
-            .with_accounts(cpi_accounts)?;
+            .try_with_accounts(cpi_accounts)?;
         unsafe { builder.build() }.invoke(accounts)
     }
 
@@ -127,7 +127,7 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
             .with_prog_handle(cpi_prog)
             .with_ix_data(cpi_ix_data)
             .with_pda_signers(signers_seeds)
-            .with_accounts(cpi_accounts)?;
+            .try_with_accounts(cpi_accounts)?;
         unsafe { builder.build() }.invoke(accounts)
     }
 
@@ -148,7 +148,7 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         let builder = CpiBuilder::new(self, accounts)
             .with_prog_id(cpi_prog_id)
             .with_ix_data(cpi_ix_data)
-            .with_accounts_fwd(cpi_accounts)?;
+            .try_with_accounts_fwd(cpi_accounts)?;
         unsafe { builder.build() }.invoke(accounts)
     }
 
@@ -166,7 +166,7 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         let builder = CpiBuilder::new(self, accounts)
             .with_prog_handle(cpi_prog)
             .with_ix_data(cpi_ix_data)
-            .with_accounts_fwd(cpi_accounts)?;
+            .try_with_accounts_fwd(cpi_accounts)?;
         unsafe { builder.build() }.invoke(accounts)
     }
 }
@@ -221,7 +221,7 @@ impl<
     // prog ID
 
     #[inline]
-    pub fn try_with_prog_id<E>(
+    pub fn try_with_derive_prog_id<E>(
         self,
         derive_prog_id: impl FnOnce(
             &'data Accounts<'accounts, MAX_ACCOUNTS>,
@@ -236,12 +236,20 @@ impl<
     }
 
     #[inline]
+    pub fn with_derive_prog_id(
+        self,
+        derive_prog_id: impl FnOnce(&'data Accounts<'accounts, MAX_ACCOUNTS>) -> &'data [u8; 32],
+    ) -> CpiBuilder<'cpi, 'data, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, true> {
+        self.try_with_derive_prog_id(|a| Ok::<_, Infallible>(derive_prog_id(a)))
+            .unwrap()
+    }
+
+    #[inline]
     pub fn with_prog_handle(
         self,
         handle: AccountHandle<'accounts>,
     ) -> CpiBuilder<'cpi, 'data, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, true> {
-        self.try_with_prog_id(|a| Ok::<_, Infallible>(a.get(handle).key()))
-            .unwrap()
+        self.with_derive_prog_id(|a| a.get(handle).key())
     }
 
     #[inline]
@@ -249,14 +257,13 @@ impl<
         self,
         prog_id: &'data [u8; 32],
     ) -> CpiBuilder<'cpi, 'data, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, true> {
-        self.try_with_prog_id(|_a| Ok::<_, Infallible>(prog_id))
-            .unwrap()
+        self.with_derive_prog_id(|_a| prog_id)
     }
 
     // ix data
 
     #[inline]
-    pub fn try_with_ix_data<E>(
+    pub fn try_with_derive_ix_data<E>(
         self,
         derive_ix_data: impl FnOnce(&'data Accounts<'accounts, MAX_ACCOUNTS>) -> Result<&'data [u8], E>,
     ) -> Result<Self, E> {
@@ -268,15 +275,23 @@ impl<
     }
 
     #[inline]
-    pub fn with_ix_data(self, ix_data: &'data [u8]) -> Self {
-        self.try_with_ix_data(|_a| Ok::<_, Infallible>(ix_data))
+    pub fn with_derive_ix_data(
+        self,
+        derive_ix_data: impl FnOnce(&'data Accounts<'accounts, MAX_ACCOUNTS>) -> &'data [u8],
+    ) -> Self {
+        self.try_with_derive_ix_data(|a| Ok::<_, Infallible>(derive_ix_data(a)))
             .unwrap()
+    }
+
+    #[inline]
+    pub fn with_ix_data(self, ix_data: &'data [u8]) -> Self {
+        self.with_derive_ix_data(|_a| ix_data)
     }
 
     // signers
 
     #[inline]
-    pub fn try_with_pda_signers<E>(
+    pub fn try_with_derive_pda_signers<E>(
         self,
         derive_pda_signers: impl FnOnce(
             &'data Accounts<'accounts, MAX_ACCOUNTS>,
@@ -290,15 +305,27 @@ impl<
     }
 
     #[inline]
-    pub fn with_pda_signers(self, signers: &'data [PdaSigner]) -> Self {
-        self.try_with_pda_signers(|_a| Ok::<_, Infallible>(signers))
+    pub fn with_derive_pda_signers(
+        self,
+        derive_pda_signers: impl FnOnce(
+            &'data Accounts<'accounts, MAX_ACCOUNTS>,
+        ) -> &'data [PdaSigner<'data, 'data>],
+    ) -> Self {
+        self.try_with_derive_pda_signers(|a| Ok::<_, Infallible>(derive_pda_signers(a)))
             .unwrap()
+    }
+
+    #[inline]
+    pub fn with_pda_signers(self, signers: &'data [PdaSigner]) -> Self {
+        self.with_derive_pda_signers(|_a| signers)
     }
 
     // accounts
 
     #[inline]
-    pub fn try_with_accounts<I: IntoIterator<Item = (AccountHandle<'accounts>, AccountPerms)>>(
+    pub fn try_with_derive_accounts<
+        I: IntoIterator<Item = (AccountHandle<'accounts>, AccountPerms)>,
+    >(
         self,
         derive_accounts: impl FnOnce(
             &'data Accounts<'accounts, MAX_ACCOUNTS>,
@@ -333,15 +360,15 @@ impl<
     }
 
     #[inline]
-    pub fn with_accounts(
+    pub fn try_with_accounts(
         self,
         accounts: impl IntoIterator<Item = (AccountHandle<'accounts>, AccountPerms)>,
     ) -> Result<Self, ProgramError> {
-        self.try_with_accounts(|_a| Ok(accounts))
+        self.try_with_derive_accounts(|_a| Ok(accounts))
     }
 
     #[inline]
-    pub fn try_with_accounts_fwd<I: IntoIterator<Item = AccountHandle<'accounts>>>(
+    pub fn try_with_derive_accounts_fwd<I: IntoIterator<Item = AccountHandle<'accounts>>>(
         self,
         derive_accounts: impl FnOnce(
             &'data Accounts<'accounts, MAX_ACCOUNTS>,
@@ -370,11 +397,11 @@ impl<
     }
 
     #[inline]
-    pub fn with_accounts_fwd(
+    pub fn try_with_accounts_fwd(
         self,
         accounts: impl IntoIterator<Item = AccountHandle<'accounts>>,
     ) -> Result<Self, ProgramError> {
-        self.try_with_accounts_fwd(|_a| Ok(accounts))
+        self.try_with_derive_accounts_fwd(|_a| Ok(accounts))
     }
 }
 
