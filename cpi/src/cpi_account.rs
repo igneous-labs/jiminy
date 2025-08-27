@@ -3,6 +3,8 @@ use jiminy_account::Account;
 /// An `Account` for CPI invocations.
 ///
 /// This struct has the memory layout as expected by `sol_invoke_signed_c` syscall.
+///
+/// Note that the struct defn is vastly different from [`Account`]
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub(crate) struct CpiAccount {

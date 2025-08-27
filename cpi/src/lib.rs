@@ -90,9 +90,96 @@ impl<const MAX_CPI_ACCOUNTS: usize> Default for Cpi<MAX_CPI_ACCOUNTS> {
     }
 }
 
+#[derive(Debug)]
+pub struct PreparedCpi<'this, 'data, const MAX_CPI_ACCOUNTS: usize> {
+    this: &'this mut Cpi<MAX_CPI_ACCOUNTS>,
+    len: usize,
+    cpi_prog_id: *const [u8; 32],
+    cpi_ix_data: &'data [u8],
+    signers_seeds: &'data [PdaSigner<'data, 'data>],
+}
+
+impl<const MAX_CPI_ACCOUNTS: usize> PreparedCpi<'_, '_, MAX_CPI_ACCOUNTS> {
+    #[inline]
+    pub fn invoke<const MAX_ACCOUNTS: usize>(
+        &mut self,
+        _accounts: &mut Accounts<'_, MAX_ACCOUNTS>,
+    ) -> Result<(), ProgramError> {
+        // safety:
+        // - `self` is valid by construction, so no index oob
+        // - `_accounts` is mutable borrowed, so no accounts are borrowed elsewhere
+        //   (see doc of invoke_signed_raw)
+        unsafe {
+            invoke_signed_raw(
+                self.cpi_prog_id,
+                self.cpi_ix_data,
+                core::slice::from_raw_parts(self.this.metas.as_ptr().cast(), self.len),
+                core::slice::from_raw_parts(self.this.accounts.as_ptr().cast(), self.len),
+                self.signers_seeds,
+            )
+        }
+    }
+}
+
 impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
     // DO NOT #[inline(always)] invoke_signed.
     // #[inline] results in lower CUs and binary sizes
+
+    /// # Returns
+    /// length of `cpi_accounts`
+    ///
+    /// # Errors
+    /// - if `into` is not big enough to hold all accounts in cpi_accounts
+    #[inline]
+    fn accum_cpi_accs<'account, const MAX_ACCOUNTS: usize>(
+        &mut self,
+        accounts: &Accounts<'account, MAX_ACCOUNTS>,
+        cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
+    ) -> Result<usize, ProgramError> {
+        cpi_accounts.into_iter().try_fold(0, |len, (handle, perm)| {
+            if len >= MAX_CPI_ACCOUNTS {
+                return Err(ProgramError::from_builtin(
+                    BuiltInProgramError::InvalidArgument,
+                ));
+            }
+            let acc = accounts.get_ptr(handle);
+            // index-safety: bounds checked against MAX_CPI_ACCOUNTS above
+            // write-safety: CpiAccountMeta and CpiAccount are Copy,
+            // dont care about overwriting old data
+            self.metas[len].write(CpiAccountMeta::new(acc, perm));
+            // we technically dont need to pass duplicate AccountInfos
+            // but making metas correspond 1:1 with accounts just makes it easier.
+            //
+            // We've also unfortunately erased duplicate flag info when
+            // creating the `Accounts` struct.
+            self.accounts[len].write(CpiAccount::from_mut_account(acc));
+            Ok(len + 1)
+        })
+    }
+
+    /// Exposed as public API to allow for `cpi_accounts` iterators that need to immutably borrow `accounts`
+    ///
+    /// # Safety
+    /// Until the returned [`PreparedCpi`] is dropped, `accounts` must not be mutated after
+    /// calling this method apart from the returned struct's [`PreparedCpi::invoke`], else UB.
+    #[inline]
+    pub unsafe fn prep_signed<'this, 'data, 'account, const MAX_ACCOUNTS: usize>(
+        &'this mut self,
+        accounts: &Accounts<'account, MAX_ACCOUNTS>,
+        cpi_prog_id: &'data [u8; 32],
+        cpi_ix_data: &'data [u8],
+        cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
+        signers_seeds: &'data [PdaSigner],
+    ) -> Result<PreparedCpi<'this, 'data, MAX_CPI_ACCOUNTS>, ProgramError> {
+        let len = self.accum_cpi_accs(accounts, cpi_accounts)?;
+        Ok(PreparedCpi {
+            this: self,
+            len,
+            cpi_prog_id,
+            cpi_ix_data,
+            signers_seeds,
+        })
+    }
 
     #[inline]
     pub fn invoke_signed<'account, const MAX_ACCOUNTS: usize>(
@@ -103,37 +190,105 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
         signers_seeds: &[PdaSigner],
     ) -> Result<(), ProgramError> {
-        let len = cpi_accounts
-            .into_iter()
-            .try_fold(0, |len, (handle, perm)| {
-                if len >= MAX_CPI_ACCOUNTS {
-                    return Err(ProgramError::from_builtin(
-                        BuiltInProgramError::InvalidArgument,
-                    ));
-                }
-                let acc = accounts.get_ptr(handle);
-                // index-safety: bounds checked against MAX_CPI_ACCOUNTS above
-                // write-safety: CpiAccountMeta and CpiAccount are Copy,
-                // dont care about overwriting old data
-                self.metas[len].write(CpiAccountMeta::new(acc, perm));
-                // we technically dont need to pass duplicate AccountInfos
-                // but making metas correspond 1:1 with accounts just makes it easier.
-                //
-                // We've also unfortunately erased duplicate flag info when
-                // creating the `Accounts` struct.
-                self.accounts[len].write(CpiAccount::from_mut_account(acc));
-                Ok(len + 1)
-            })?;
-
         unsafe {
-            invoke_signed_raw(
+            self.prep_signed(
+                accounts,
                 cpi_prog_id,
                 cpi_ix_data,
-                core::slice::from_raw_parts(self.metas.as_ptr().cast(), len),
-                core::slice::from_raw_parts(self.accounts.as_ptr().cast(), len),
+                cpi_accounts,
                 signers_seeds,
             )
-        }
+        }?
+        .invoke(accounts)
+    }
+
+    /// Exposed as public API to allow for `cpi_accounts` iterators that need to immutably borrow `accounts`
+    ///
+    /// # Safety
+    /// Until the returned [`PreparedCpi`] is dropped, `accounts` must not be mutated after
+    /// calling this method apart from the returned struct's [`PreparedCpi::invoke`], else UB.
+    #[inline]
+    pub unsafe fn prep_signed_handle<'this, 'data, 'account, const MAX_ACCOUNTS: usize>(
+        &'this mut self,
+        accounts: &Accounts<'account, MAX_ACCOUNTS>,
+        cpi_prog: AccountHandle<'account>,
+        cpi_ix_data: &'data [u8],
+        cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
+        signers_seeds: &'data [PdaSigner],
+    ) -> Result<PreparedCpi<'this, 'data, MAX_CPI_ACCOUNTS>, ProgramError> {
+        let len = self.accum_cpi_accs(accounts, cpi_accounts)?;
+        Ok(PreparedCpi {
+            this: self,
+            len,
+            cpi_prog_id: accounts.get(cpi_prog).key(),
+            cpi_ix_data,
+            signers_seeds,
+        })
+    }
+
+    /// In general this is more CU optimal than [`Self::invoke_signed`]
+    /// if program is available as an account in the context
+    /// because it can avoid a copy of its pubkey
+    #[inline]
+    pub fn invoke_signed_handle<'account, const MAX_ACCOUNTS: usize>(
+        &mut self,
+        accounts: &mut Accounts<'account, MAX_ACCOUNTS>,
+        cpi_prog: AccountHandle<'account>,
+        cpi_ix_data: &[u8],
+        cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
+        signers_seeds: &[PdaSigner],
+    ) -> Result<(), ProgramError> {
+        unsafe {
+            self.prep_signed_handle(accounts, cpi_prog, cpi_ix_data, cpi_accounts, signers_seeds)
+        }?
+        .invoke(accounts)
+    }
+
+    /// Same as [`Self::accum_cpi_accs`], but simply forwards the [`AccountPerms`] of each
+    /// account within the `accounts` context instead of relying on another source.
+    #[inline]
+    fn accum_cpi_accs_fwd<'account, const MAX_ACCOUNTS: usize>(
+        &mut self,
+        accounts: &Accounts<'account, MAX_ACCOUNTS>,
+        cpi_accounts: impl IntoIterator<Item = AccountHandle<'account>>,
+    ) -> Result<usize, ProgramError> {
+        cpi_accounts.into_iter().try_fold(0, |len, handle| {
+            if len >= MAX_CPI_ACCOUNTS {
+                return Err(ProgramError::from_builtin(
+                    BuiltInProgramError::InvalidArgument,
+                ));
+            }
+            let acc = accounts.get_ptr(handle);
+
+            // this fn's code should be the exact same as [`accum_cpi_accs`]
+            // except for this line here:
+            self.metas[len].write(CpiAccountMeta::fwd(acc));
+
+            self.accounts[len].write(CpiAccount::from_mut_account(acc));
+            Ok(len + 1)
+        })
+    }
+
+    /// Exposed as public API to allow for `cpi_accounts` iterators that need to immutably borrow `accounts`
+    ///
+    /// # Safety
+    /// `accounts` must not be mutated after calling this method, until the returned [`PreparedCpi`] is dropped, else UB.
+    #[inline]
+    pub unsafe fn prep_fwd<'this, 'data, 'account, const MAX_ACCOUNTS: usize>(
+        &'this mut self,
+        accounts: &Accounts<'account, MAX_ACCOUNTS>,
+        cpi_prog_id: &'data [u8; 32],
+        cpi_ix_data: &'data [u8],
+        cpi_accounts: impl IntoIterator<Item = AccountHandle<'account>>,
+    ) -> Result<PreparedCpi<'this, 'data, MAX_CPI_ACCOUNTS>, ProgramError> {
+        let len = self.accum_cpi_accs_fwd(accounts, cpi_accounts)?;
+        Ok(PreparedCpi {
+            this: self,
+            len,
+            cpi_prog_id,
+            cpi_ix_data,
+            signers_seeds: &[],
+        })
     }
 
     /// CPI, but unlike [`Self::invoke_signed`], simply forwards the [`AccountPerms`] of each
@@ -150,31 +305,44 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         cpi_ix_data: &[u8],
         cpi_accounts: impl IntoIterator<Item = AccountHandle<'account>>,
     ) -> Result<(), ProgramError> {
-        let len = cpi_accounts.into_iter().try_fold(0, |len, handle| {
-            if len >= MAX_CPI_ACCOUNTS {
-                return Err(ProgramError::from_builtin(
-                    BuiltInProgramError::InvalidArgument,
-                ));
-            }
-            let acc = accounts.get_ptr(handle);
+        unsafe { self.prep_fwd(accounts, cpi_prog_id, cpi_ix_data, cpi_accounts) }?.invoke(accounts)
+    }
 
-            // this fn's code should be the exact same as [`Self::invoke_signed`]
-            // except for this line here:
-            self.metas[len].write(CpiAccountMeta::fwd(acc));
+    /// Exposed as public API to allow for `cpi_accounts` iterators that need to immutably borrow `accounts`
+    ///
+    /// # Safety
+    /// `accounts` must not be mutated after calling this method, until the returned [`PreparedCpi`] is dropped, else UB.
+    #[inline]
+    pub unsafe fn prep_fwd_handle<'this, 'data, 'account, const MAX_ACCOUNTS: usize>(
+        &'this mut self,
+        accounts: &Accounts<'account, MAX_ACCOUNTS>,
+        cpi_prog: AccountHandle<'account>,
+        cpi_ix_data: &'data [u8],
+        cpi_accounts: impl IntoIterator<Item = AccountHandle<'account>>,
+    ) -> Result<PreparedCpi<'this, 'data, MAX_CPI_ACCOUNTS>, ProgramError> {
+        let len = self.accum_cpi_accs_fwd(accounts, cpi_accounts)?;
+        Ok(PreparedCpi {
+            this: self,
+            len,
+            cpi_prog_id: accounts.get(cpi_prog).key(),
+            cpi_ix_data,
+            signers_seeds: &[],
+        })
+    }
 
-            self.accounts[len].write(CpiAccount::from_mut_account(acc));
-            Ok(len + 1)
-        })?;
-
-        unsafe {
-            invoke_signed_raw(
-                cpi_prog_id,
-                cpi_ix_data,
-                core::slice::from_raw_parts(self.metas.as_ptr().cast(), len),
-                core::slice::from_raw_parts(self.accounts.as_ptr().cast(), len),
-                &[],
-            )
-        }
+    /// In general this is more CU optimal than [`Self::invoke_signed`]
+    /// if program is available as an account in the context
+    /// because it can avoid a copy of its pubkey
+    #[inline]
+    pub fn invoke_fwd_handle<'account, const MAX_ACCOUNTS: usize>(
+        &mut self,
+        accounts: &mut Accounts<'account, MAX_ACCOUNTS>,
+        cpi_prog: AccountHandle<'account>,
+        cpi_ix_data: &[u8],
+        cpi_accounts: impl IntoIterator<Item = AccountHandle<'account>>,
+    ) -> Result<(), ProgramError> {
+        unsafe { self.prep_fwd_handle(accounts, cpi_prog, cpi_ix_data, cpi_accounts) }?
+            .invoke(accounts)
     }
 }
 
@@ -183,7 +351,7 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
 ///   elsewhere, else UB. This is guaranteed by `&mut Accounts` in [`Cpi::invoke_signed`]
 #[inline]
 unsafe fn invoke_signed_raw(
-    prog_id: &[u8; 32],
+    program_id: *const [u8; 32],
     ix_data: &[u8],
     metas: &[CpiAccountMeta],
     accounts: &[CpiAccount],
@@ -211,7 +379,7 @@ unsafe fn invoke_signed_raw(
         }
 
         let ix = CpiInstruction {
-            program_id: prog_id.as_ptr().cast(),
+            program_id,
             metas: metas.as_ptr(),
             metas_len: metas.len() as u64,
             data: ix_data.as_ptr(),
@@ -234,7 +402,7 @@ unsafe fn invoke_signed_raw(
 
     #[cfg(not(target_os = "solana"))]
     {
-        core::hint::black_box((prog_id, metas, ix_data, accounts, signers_seeds));
+        core::hint::black_box((program_id, metas, ix_data, accounts, signers_seeds));
         unreachable!()
     }
 }
