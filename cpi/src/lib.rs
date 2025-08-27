@@ -226,7 +226,7 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
             //
             // We've also unfortunately erased duplicate flag info when
             // creating the `Accounts` struct.
-            self.accounts[len].write(CpiAccount::from_mut_account(acc));
+            self.accounts[len].write(CpiAccount::from_ptr(acc));
             Ok(len + 1)
         })
     }
@@ -340,7 +340,7 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
             // except for this line here:
             self.metas[len].write(CpiAccountMeta::fwd(acc));
 
-            self.accounts[len].write(CpiAccount::from_mut_account(acc));
+            self.accounts[len].write(CpiAccount::from_ptr(acc));
             Ok(len + 1)
         })
     }

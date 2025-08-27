@@ -42,7 +42,7 @@ pub(crate) struct CpiAccount {
 
 impl CpiAccount {
     #[inline(always)]
-    pub(crate) fn from_mut_account(acc: *mut Account) -> Self {
+    pub(crate) fn from_ptr(acc: *mut Account) -> Self {
         unsafe {
             Self {
                 key: Account::key_ptr(acc),
