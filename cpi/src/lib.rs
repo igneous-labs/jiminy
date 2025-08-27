@@ -4,7 +4,7 @@
 //! All the invocation functions take `&mut Accounts` as param
 //! because we must have exclusive access to accounts since CPI may mutate accounts
 
-use core::mem::MaybeUninit;
+use core::{marker::PhantomData, mem::MaybeUninit};
 
 // Re-exports
 pub mod account {
@@ -90,33 +90,105 @@ impl<const MAX_CPI_ACCOUNTS: usize> Default for Cpi<MAX_CPI_ACCOUNTS> {
     }
 }
 
+/// # Invariants
+/// - cpi_accs.len == ix.metas.len
 #[derive(Debug)]
-pub struct PreparedCpi<'this, 'data, const MAX_CPI_ACCOUNTS: usize> {
-    this: &'this mut Cpi<MAX_CPI_ACCOUNTS>,
-    len: usize,
-    cpi_prog_id: *const [u8; 32],
-    cpi_ix_data: &'data [u8],
-    signers_seeds: &'data [PdaSigner<'data, 'data>],
+pub struct PreparedCpi<'this, 'data> {
+    ix: CpiInstruction,
+    cpi_accs: *const u8,
+    signers_seeds: *const u8,
+    signers_seeds_len: u64,
+
+    cpi: PhantomData<&'this mut Cpi>,
+    /// lifetime for signers_seeds, prog id, ix data
+    data: PhantomData<&'data u8>,
 }
 
-impl<const MAX_CPI_ACCOUNTS: usize> PreparedCpi<'_, '_, MAX_CPI_ACCOUNTS> {
+/// This struct has the memory layout as expected by `sol_invoke_signed_c` syscall.
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+struct CpiInstruction {
+    /// Public key of the program.
+    program_id: *const [u8; 32],
+
+    /// Accounts expected by the program instruction.
+    metas: *const CpiAccountMeta,
+
+    /// Number of accounts expected by the program instruction.
+    metas_len: u64,
+
+    /// Data expected by the program instruction.
+    data: *const u8,
+
+    /// Length of the data expected by the program instruction.
+    data_len: u64,
+}
+
+impl<'this, 'data> PreparedCpi<'this, 'data> {
+    #[inline]
+    const fn new<const MAX_CPI_ACCOUNTS: usize>(
+        buf: &'this mut Cpi<MAX_CPI_ACCOUNTS>,
+        accs_len: usize,
+        cpi_prog_id: *const [u8; 32],
+        cpi_ix_data: &'data [u8],
+        signers_seeds: &'data [PdaSigner],
+    ) -> Self {
+        Self {
+            ix: CpiInstruction {
+                program_id: cpi_prog_id,
+                metas: buf.metas.as_ptr().cast(),
+                metas_len: accs_len as u64,
+                data: cpi_ix_data.as_ptr(),
+                data_len: cpi_ix_data.len() as u64,
+            },
+            signers_seeds: signers_seeds.as_ptr().cast(),
+            signers_seeds_len: signers_seeds.len() as u64,
+            cpi_accs: buf.accounts.as_ptr().cast(),
+            cpi: PhantomData,
+            data: PhantomData,
+        }
+    }
+}
+
+impl PreparedCpi<'_, '_> {
+    /// Each `PreparedCpi` is only valid for one-time use because
+    /// a CPI may realloc an account, invalidating its `CpiAccount::data_len`
     #[inline]
     pub fn invoke<const MAX_ACCOUNTS: usize>(
-        &mut self,
+        self,
         _accounts: &mut Accounts<'_, MAX_ACCOUNTS>,
     ) -> Result<(), ProgramError> {
-        // safety:
-        // - `self` is valid by construction, so no index oob
-        // - `_accounts` is mutable borrowed, so no accounts are borrowed elsewhere
-        //   (see doc of invoke_signed_raw)
-        unsafe {
-            invoke_signed_raw(
-                self.cpi_prog_id,
-                self.cpi_ix_data,
-                core::slice::from_raw_parts(self.this.metas.as_ptr().cast(), self.len),
-                core::slice::from_raw_parts(self.this.accounts.as_ptr().cast(), self.len),
-                self.signers_seeds,
-            )
+        let Self {
+            ix,
+            signers_seeds,
+            signers_seeds_len,
+            cpi_accs,
+            ..
+        } = self;
+
+        #[cfg(target_os = "solana")]
+        {
+            // safety: mut borrow of `&mut Accounts` ensures
+            // that no account is being borrowed elsewhere
+            let res = unsafe {
+                jiminy_syscall::sol_invoke_signed_c(
+                    core::ptr::addr_of!(ix).cast(),
+                    cpi_accs,
+                    ix.metas_len,
+                    signers_seeds,
+                    signers_seeds_len,
+                )
+            };
+            match core::num::NonZeroU64::new(res) {
+                None => Ok(()),
+                Some(err) => Err(err.into()),
+            }
+        }
+
+        #[cfg(not(target_os = "solana"))]
+        {
+            core::hint::black_box((ix, signers_seeds, signers_seeds_len, cpi_accs));
+            unreachable!()
         }
     }
 }
@@ -149,6 +221,8 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
             self.metas[len].write(CpiAccountMeta::new(acc, perm));
             // we technically dont need to pass duplicate AccountInfos
             // but making metas correspond 1:1 with accounts just makes it easier.
+            // This allows us to store one less u64 in `PreparedCpi`
+            // thanks to invariant of metas.len() == accounts.len()
             //
             // We've also unfortunately erased duplicate flag info when
             // creating the `Accounts` struct.
@@ -170,15 +244,15 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         cpi_ix_data: &'data [u8],
         cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
         signers_seeds: &'data [PdaSigner],
-    ) -> Result<PreparedCpi<'this, 'data, MAX_CPI_ACCOUNTS>, ProgramError> {
+    ) -> Result<PreparedCpi<'this, 'data>, ProgramError> {
         let len = self.accum_cpi_accs(accounts, cpi_accounts)?;
-        Ok(PreparedCpi {
-            this: self,
+        Ok(PreparedCpi::new(
+            self,
             len,
             cpi_prog_id,
             cpi_ix_data,
             signers_seeds,
-        })
+        ))
     }
 
     #[inline]
@@ -215,15 +289,17 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         cpi_ix_data: &'data [u8],
         cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
         signers_seeds: &'data [PdaSigner],
-    ) -> Result<PreparedCpi<'this, 'data, MAX_CPI_ACCOUNTS>, ProgramError> {
+    ) -> Result<PreparedCpi<'this, 'data>, ProgramError> {
         let len = self.accum_cpi_accs(accounts, cpi_accounts)?;
-        Ok(PreparedCpi {
-            this: self,
+        Ok(PreparedCpi::new(
+            self,
             len,
-            cpi_prog_id: accounts.get(cpi_prog).key(),
+            // runtime ensures pubkey is never modified so
+            // casting to ptr is safe here
+            accounts.get(cpi_prog).key(),
             cpi_ix_data,
             signers_seeds,
-        })
+        ))
     }
 
     /// In general this is more CU optimal than [`Self::invoke_signed`]
@@ -280,15 +356,9 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         cpi_prog_id: &'data [u8; 32],
         cpi_ix_data: &'data [u8],
         cpi_accounts: impl IntoIterator<Item = AccountHandle<'account>>,
-    ) -> Result<PreparedCpi<'this, 'data, MAX_CPI_ACCOUNTS>, ProgramError> {
+    ) -> Result<PreparedCpi<'this, 'data>, ProgramError> {
         let len = self.accum_cpi_accs_fwd(accounts, cpi_accounts)?;
-        Ok(PreparedCpi {
-            this: self,
-            len,
-            cpi_prog_id,
-            cpi_ix_data,
-            signers_seeds: &[],
-        })
+        Ok(PreparedCpi::new(self, len, cpi_prog_id, cpi_ix_data, &[]))
     }
 
     /// CPI, but unlike [`Self::invoke_signed`], simply forwards the [`AccountPerms`] of each
@@ -319,15 +389,17 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         cpi_prog: AccountHandle<'account>,
         cpi_ix_data: &'data [u8],
         cpi_accounts: impl IntoIterator<Item = AccountHandle<'account>>,
-    ) -> Result<PreparedCpi<'this, 'data, MAX_CPI_ACCOUNTS>, ProgramError> {
+    ) -> Result<PreparedCpi<'this, 'data>, ProgramError> {
         let len = self.accum_cpi_accs_fwd(accounts, cpi_accounts)?;
-        Ok(PreparedCpi {
-            this: self,
+        Ok(PreparedCpi::new(
+            self,
             len,
-            cpi_prog_id: accounts.get(cpi_prog).key(),
+            // runtime ensures pubkey is never modified so
+            // casting to ptr is safe here
+            accounts.get(cpi_prog).key(),
             cpi_ix_data,
-            signers_seeds: &[],
-        })
+            &[],
+        ))
     }
 
     /// In general this is more CU optimal than [`Self::invoke_signed`]
@@ -343,66 +415,5 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
     ) -> Result<(), ProgramError> {
         unsafe { self.prep_fwd_handle(accounts, cpi_prog, cpi_ix_data, cpi_accounts) }?
             .invoke(accounts)
-    }
-}
-
-/// # Safety
-/// - metas and accounts must be pointing to Accounts that are not currently borrowed
-///   elsewhere, else UB. This is guaranteed by `&mut Accounts` in [`Cpi::invoke_signed`]
-#[inline]
-unsafe fn invoke_signed_raw(
-    program_id: *const [u8; 32],
-    ix_data: &[u8],
-    metas: &[CpiAccountMeta],
-    accounts: &[CpiAccount],
-    signers_seeds: &[PdaSigner],
-) -> Result<(), ProgramError> {
-    #[cfg(target_os = "solana")]
-    {
-        #[derive(Debug, Clone, Copy)]
-        #[repr(C)]
-        struct CpiInstruction {
-            /// Public key of the program.
-            program_id: *const [u8; 32],
-
-            /// Accounts expected by the program instruction.
-            metas: *const CpiAccountMeta,
-
-            /// Number of accounts expected by the program instruction.
-            metas_len: u64,
-
-            /// Data expected by the program instruction.
-            data: *const u8,
-
-            /// Length of the data expected by the program instruction.
-            data_len: u64,
-        }
-
-        let ix = CpiInstruction {
-            program_id,
-            metas: metas.as_ptr(),
-            metas_len: metas.len() as u64,
-            data: ix_data.as_ptr(),
-            data_len: ix_data.len() as u64,
-        };
-        let res = unsafe {
-            jiminy_syscall::sol_invoke_signed_c(
-                core::ptr::addr_of!(ix).cast(),
-                accounts.as_ptr().cast(),
-                accounts.len() as u64,
-                signers_seeds.as_ptr().cast(),
-                signers_seeds.len() as u64,
-            )
-        };
-        match core::num::NonZeroU64::new(res) {
-            None => Ok(()),
-            Some(err) => Err(err.into()),
-        }
-    }
-
-    #[cfg(not(target_os = "solana"))]
-    {
-        core::hint::black_box((program_id, metas, ix_data, accounts, signers_seeds));
-        unreachable!()
     }
 }
