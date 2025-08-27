@@ -2,10 +2,7 @@
 
 use std::mem::MaybeUninit;
 
-use jiminy_cpi::{
-    program_error::{BuiltInProgramError, ProgramError},
-    Cpi,
-};
+use jiminy_cpi::program_error::{BuiltInProgramError, ProgramError};
 use jiminy_pda::{
     create_program_address_to, create_raw_program_address_to, try_find_program_address_to, PdaSeed,
     PdaSeedArr, PdaSigner,
@@ -16,6 +13,7 @@ pub const MAX_ACCS: usize = 2;
 pub const MAX_CPI_ACCS: usize = 2;
 
 type Accounts<'account> = jiminy_entrypoint::account::Accounts<'account, MAX_ACCS>;
+type Cpi = jiminy_cpi::Cpi<MAX_CPI_ACCS>;
 
 jiminy_entrypoint::entrypoint!(process_ix, MAX_ACCS);
 
@@ -80,10 +78,9 @@ fn process_ix(
     // use sys_prog as placeholder to avoid unsafe code
     let assign_accounts = AssignIxAccs::memset(sys_prog).with_assign(pda);
     // assign pda to this prog
-    let sys_prog_key = *accounts.get(sys_prog).key();
-    Cpi::<MAX_CPI_ACCS>::new().invoke_signed(
+    Cpi::new().invoke_signed_handle(
         accounts,
-        &sys_prog_key,
+        sys_prog,
         AssignIxData::new(prog_id).as_buf(),
         assign_accounts.into_account_handle_perms(),
         // last 2 item on `seeds` are program ID and PDA_MARKER, so omit those
