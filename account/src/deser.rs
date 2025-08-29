@@ -4,6 +4,7 @@
 //   away redundant reads, so always try to reuse already computed offset data.
 //   E.g. there used to be an AccountHandle::dup_from_ptr method for API symmetry with non_dup_from_ptr,
 //   but that resulted in a redundant read of the duplicate marker vs if we just used the matched byte directly.
+// - #[inline(always)] for all fns here replaced with #[inline]. Caused instructions test program to -4 CUs but +16 binsize
 
 use core::{cell::UnsafeCell, cmp::min, mem::MaybeUninit};
 
