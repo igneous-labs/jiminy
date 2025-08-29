@@ -73,7 +73,7 @@ macro_rules! program_entrypoint {
 /// # Safety
 /// - input must be a pointer returned by the solana runtime pointing to the start of the block
 ///   of program input memory (0x400000000)
-#[inline(always)]
+#[inline]
 pub unsafe fn deserialize<const MAX_ACCOUNTS: usize>(
     input: *mut u8,
 ) -> (

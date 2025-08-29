@@ -25,7 +25,7 @@ use crate::{
 /// - `_scope` is just an unused param that is meant to bound the
 ///   `'account` lifetime; the returned [`Accounts`] will have the same
 ///   lifetime as `_scope`
-#[inline(always)]
+#[inline]
 pub unsafe fn deser_accounts<const MAX_ACCOUNTS: usize>(
     _scope: &(),
     input: *mut u8,
@@ -62,14 +62,7 @@ pub unsafe fn deser_accounts<const MAX_ACCOUNTS: usize>(
     let input = (0..saved_accounts_len).fold(input, |input, i| {
         let (new_input, acc_handle) = match input.read() {
             NON_DUP_MARKER => AccountHandle::non_dup_from_ptr(input),
-            dup_idx => {
-                // bitwise copy of pointer
-                //
-                // slice::get_unchecked safety: runtime should always return indices
-                // that we've already deserialized, which is within bounds of accounts
-                let dup_acc_handle = accounts.get_unchecked(dup_idx as usize).assume_init();
-                (input.add(8), dup_acc_handle)
-            }
+            dup_idx => AccountHandle::dup_from_ptr(input, dup_idx, &accounts),
         };
         // unchecked index safety: bounds checked by saved_accounts_len above
         accounts.get_unchecked_mut(i).write(acc_handle);
@@ -80,7 +73,7 @@ pub unsafe fn deser_accounts<const MAX_ACCOUNTS: usize>(
     // into accounts. Results in reduced CUs per account
     let input = (saved_accounts_len..accounts_len).fold(input, |input, _| match input.read() {
         NON_DUP_MARKER => AccountHandle::non_dup_from_ptr(input).0,
-        _dup_idx => input.add(8),
+        dup_idx => AccountHandle::dup_from_ptr(input, dup_idx, &accounts).0,
     });
 
     (
@@ -104,7 +97,7 @@ impl AccountHandle<'_> {
     /// # Safety
     /// - ptr must be pointing to the start of a non-duplicate account
     ///   in the runtime serialized buffer
-    #[inline(always)]
+    #[inline]
     pub(crate) unsafe fn non_dup_from_ptr(ptr: *mut u8) -> (*mut u8, Self) {
         let inner: *mut Account = ptr.cast();
         let total_len =
@@ -118,5 +111,23 @@ impl AccountHandle<'_> {
         let ptr = ptr.add(8);
 
         (ptr, res)
+    }
+}
+
+impl<'account> AccountHandle<'account> {
+    /// Factored out into its own fn so that we can stick #[cold] on it
+    #[cold]
+    #[inline]
+    unsafe fn dup_from_ptr(
+        ptr: *mut u8,
+        dup_idx: u8,
+        accounts: &[MaybeUninit<AccountHandle<'account>>],
+    ) -> (*mut u8, Self) {
+        // bitwise copy of pointer
+        //
+        // slice::get_unchecked safety: runtime should always return indices
+        // that we've already deserialized, which is within bounds of `accounts`
+        let dup_acc_handle = accounts.get_unchecked(dup_idx as usize).assume_init();
+        (ptr.add(8), dup_acc_handle)
     }
 }
