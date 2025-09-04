@@ -62,7 +62,7 @@ pub unsafe fn deser_accounts<const MAX_ACCOUNTS: usize>(
     // fit into a single register, so only ints and references allowed
     let input = (0..saved_accounts_len).fold(input, |input, i| {
         let (new_input, acc_handle) = match input.read() {
-            NON_DUP_MARKER => AccountHandle::non_dup_from_ptr(input),
+            NON_DUP_MARKER => AccountHandle::non_dup_from_ptr(input, &accounts),
             dup_idx => AccountHandle::dup_from_ptr(input, dup_idx, &accounts),
         };
         // unchecked index safety: bounds checked by saved_accounts_len above
@@ -73,7 +73,7 @@ pub unsafe fn deser_accounts<const MAX_ACCOUNTS: usize>(
     // some duplicate logic here but this avoid bounds check before pushing
     // into accounts. Results in reduced CUs per account
     let input = (saved_accounts_len..accounts_len).fold(input, |input, _| match input.read() {
-        NON_DUP_MARKER => AccountHandle::non_dup_from_ptr(input).0,
+        NON_DUP_MARKER => AccountHandle::non_dup_from_ptr(input, &accounts).0,
         dup_idx => AccountHandle::dup_from_ptr(input, dup_idx, &accounts).0,
     });
 
@@ -92,15 +92,17 @@ pub unsafe fn deser_accounts<const MAX_ACCOUNTS: usize>(
 }
 
 /// Runtime deserialization internals
-impl AccountHandle<'_> {
+impl<'account> AccountHandle<'account> {
     /// Returns (pointer to start of next account or instruction data if last account, deserialized account).
     ///
     /// # Safety
     /// - ptr must be pointing to the start of a non-duplicate account
     ///   in the runtime serialized buffer
-    /// - note that lifetime of returned `Self` is unbounded
     #[inline]
-    pub(crate) unsafe fn non_dup_from_ptr(ptr: *mut u8) -> (*mut u8, Self) {
+    pub(crate) unsafe fn non_dup_from_ptr(
+        ptr: *mut u8,
+        _accounts: &[MaybeUninit<AccountHandle<'account>>], // here just to bound lifetimes
+    ) -> (*mut u8, Self) {
         let inner: *mut Account = ptr.cast();
         let total_len =
             core::mem::size_of::<Account>() + (*inner).data_len() + MAX_PERMITTED_DATA_INCREASE;
@@ -114,9 +116,7 @@ impl AccountHandle<'_> {
 
         (ptr, res)
     }
-}
 
-impl<'account> AccountHandle<'account> {
     /// Factored out into its own fn so that we can stick #[cold] on it
     #[cold]
     #[inline]

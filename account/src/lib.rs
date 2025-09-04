@@ -365,7 +365,7 @@ mod tests {
     fn comptime_lifetimes_check() {
         let mut invalid_runtime_buffer = [];
         let (_, invalid_acc) =
-            unsafe { AccountHandle::non_dup_from_ptr(invalid_runtime_buffer.as_mut_ptr()) };
+            unsafe { AccountHandle::non_dup_from_ptr(invalid_runtime_buffer.as_mut_ptr(), &[]) };
         let mut invalid_accounts: Accounts<'_, 1> = Accounts {
             accounts: [MaybeUninit::new(invalid_acc)],
             len: 1,

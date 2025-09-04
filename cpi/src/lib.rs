@@ -103,12 +103,12 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
         signers_seeds: &[PdaSigner],
     ) -> Result<(), ProgramError> {
-        let builder = CpiBuilder::new(self, accounts)
+        let mut c = CpiBuilder::new(self, accounts)
             .with_prog_id(cpi_prog_id)
             .with_ix_data(cpi_ix_data)
-            .with_pda_signers(signers_seeds)
-            .try_with_accounts(cpi_accounts)?;
-        unsafe { builder.build() }.invoke(accounts)
+            .with_pda_signers(signers_seeds);
+        c.try_add_accounts(cpi_accounts)?;
+        c.invoke()
     }
 
     /// In general this is more CU optimal than [`Self::invoke_signed`]
@@ -123,12 +123,12 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
         signers_seeds: &[PdaSigner],
     ) -> Result<(), ProgramError> {
-        let builder = CpiBuilder::new(self, accounts)
+        let mut c = CpiBuilder::new(self, accounts)
             .with_prog_handle(cpi_prog)
             .with_ix_data(cpi_ix_data)
-            .with_pda_signers(signers_seeds)
-            .try_with_accounts(cpi_accounts)?;
-        unsafe { builder.build() }.invoke(accounts)
+            .with_pda_signers(signers_seeds);
+        c.try_add_accounts(cpi_accounts)?;
+        c.invoke()
     }
 
     /// CPI, but unlike [`Self::invoke_signed`], simply forwards the [`AccountPerms`] of each
@@ -145,11 +145,11 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         cpi_ix_data: &[u8],
         cpi_accounts: impl IntoIterator<Item = AccountHandle<'account>>,
     ) -> Result<(), ProgramError> {
-        let builder = CpiBuilder::new(self, accounts)
+        let mut c = CpiBuilder::new(self, accounts)
             .with_prog_id(cpi_prog_id)
-            .with_ix_data(cpi_ix_data)
-            .try_with_accounts_fwd(cpi_accounts)?;
-        unsafe { builder.build() }.invoke(accounts)
+            .with_ix_data(cpi_ix_data);
+        c.try_add_accounts_fwd(cpi_accounts)?;
+        c.invoke()
     }
 
     /// In general this is more CU optimal than [`Self::invoke_signed`]
@@ -163,11 +163,11 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         cpi_ix_data: &[u8],
         cpi_accounts: impl IntoIterator<Item = AccountHandle<'account>>,
     ) -> Result<(), ProgramError> {
-        let builder = CpiBuilder::new(self, accounts)
+        let mut c = CpiBuilder::new(self, accounts)
             .with_prog_handle(cpi_prog)
-            .with_ix_data(cpi_ix_data)
-            .try_with_accounts_fwd(cpi_accounts)?;
-        unsafe { builder.build() }.invoke(accounts)
+            .with_ix_data(cpi_ix_data);
+        c.try_add_accounts_fwd(cpi_accounts)?;
+        c.invoke()
     }
 }
 
@@ -175,253 +175,12 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
 #[derive(Debug)]
 pub struct CpiBuilder<
     'cpi,
-    'data,
     'accounts,
     const MAX_CPI_ACCOUNTS: usize,
     const MAX_ACCOUNTS: usize,
     const HAS_PROG_ID: bool,
 > {
-    accounts: &'data Accounts<'accounts, MAX_ACCOUNTS>,
-    cpi: PreparedCpi<'cpi, MAX_CPI_ACCOUNTS>,
-}
-
-/// Constructors
-impl<'cpi, 'data, 'accounts, const MAX_CPI_ACCOUNTS: usize, const MAX_ACCOUNTS: usize>
-    CpiBuilder<'cpi, 'data, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, false>
-{
-    #[inline]
-    pub const fn new(
-        cpi: &'cpi mut Cpi<MAX_CPI_ACCOUNTS>,
-        accounts: &'data Accounts<'accounts, MAX_ACCOUNTS>,
-    ) -> Self {
-        Self {
-            accounts,
-            cpi: PreparedCpi {
-                cpi,
-                accs_len: 0,
-                prog_id: core::ptr::null(),
-                data: [].as_ptr(),
-                data_len: 0,
-                signers_seeds: [].as_ptr(),
-                signers_seeds_len: 0,
-            },
-        }
-    }
-}
-
-impl<
-        'cpi,
-        'data,
-        'accounts,
-        const MAX_CPI_ACCOUNTS: usize,
-        const MAX_ACCOUNTS: usize,
-        const HAS_PROG_ID: bool,
-    > CpiBuilder<'cpi, 'data, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, HAS_PROG_ID>
-{
-    // prog ID
-
-    #[inline]
-    pub fn try_with_derive_prog_id<E>(
-        self,
-        derive_prog_id: impl FnOnce(
-            &'data Accounts<'accounts, MAX_ACCOUNTS>,
-        ) -> Result<&'data [u8; 32], E>,
-    ) -> Result<CpiBuilder<'cpi, 'data, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, true>, E> {
-        let Self {
-            mut cpi, accounts, ..
-        } = self;
-        let prog_id = derive_prog_id(accounts)?;
-        cpi.prog_id = prog_id;
-        Ok(CpiBuilder { cpi, accounts })
-    }
-
-    #[inline]
-    pub fn with_derive_prog_id(
-        self,
-        derive_prog_id: impl FnOnce(&'data Accounts<'accounts, MAX_ACCOUNTS>) -> &'data [u8; 32],
-    ) -> CpiBuilder<'cpi, 'data, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, true> {
-        self.try_with_derive_prog_id(|a| Ok::<_, Infallible>(derive_prog_id(a)))
-            .unwrap()
-    }
-
-    #[inline]
-    pub fn with_prog_handle(
-        self,
-        handle: AccountHandle<'accounts>,
-    ) -> CpiBuilder<'cpi, 'data, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, true> {
-        self.with_derive_prog_id(|a| a.get(handle).key())
-    }
-
-    #[inline]
-    pub fn with_prog_id(
-        self,
-        prog_id: &'data [u8; 32],
-    ) -> CpiBuilder<'cpi, 'data, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, true> {
-        self.with_derive_prog_id(|_a| prog_id)
-    }
-
-    // ix data
-
-    #[inline]
-    pub fn try_with_derive_ix_data<E>(
-        self,
-        derive_ix_data: impl FnOnce(&'data Accounts<'accounts, MAX_ACCOUNTS>) -> Result<&'data [u8], E>,
-    ) -> Result<Self, E> {
-        let Self { accounts, mut cpi } = self;
-        let data = derive_ix_data(accounts)?;
-        cpi.data = data.as_ptr();
-        cpi.data_len = data.len() as u64;
-        Ok(Self { cpi, accounts })
-    }
-
-    #[inline]
-    pub fn with_derive_ix_data(
-        self,
-        derive_ix_data: impl FnOnce(&'data Accounts<'accounts, MAX_ACCOUNTS>) -> &'data [u8],
-    ) -> Self {
-        self.try_with_derive_ix_data(|a| Ok::<_, Infallible>(derive_ix_data(a)))
-            .unwrap()
-    }
-
-    #[inline]
-    pub fn with_ix_data(self, ix_data: &'data [u8]) -> Self {
-        self.with_derive_ix_data(|_a| ix_data)
-    }
-
-    // signers
-
-    #[inline]
-    pub fn try_with_derive_pda_signers<E>(
-        self,
-        derive_pda_signers: impl FnOnce(
-            &'data Accounts<'accounts, MAX_ACCOUNTS>,
-        ) -> Result<&'data [PdaSigner<'data, 'data>], E>,
-    ) -> Result<Self, E> {
-        let Self { accounts, mut cpi } = self;
-        let signers = derive_pda_signers(accounts)?;
-        cpi.signers_seeds = signers.as_ptr().cast();
-        cpi.signers_seeds_len = signers.len() as u64;
-        Ok(Self { cpi, accounts })
-    }
-
-    #[inline]
-    pub fn with_derive_pda_signers(
-        self,
-        derive_pda_signers: impl FnOnce(
-            &'data Accounts<'accounts, MAX_ACCOUNTS>,
-        ) -> &'data [PdaSigner<'data, 'data>],
-    ) -> Self {
-        self.try_with_derive_pda_signers(|a| Ok::<_, Infallible>(derive_pda_signers(a)))
-            .unwrap()
-    }
-
-    #[inline]
-    pub fn with_pda_signers(self, signers: &'data [PdaSigner]) -> Self {
-        self.with_derive_pda_signers(|_a| signers)
-    }
-
-    // accounts
-
-    #[inline]
-    pub fn try_with_derive_accounts<
-        I: IntoIterator<Item = (AccountHandle<'accounts>, AccountPerms)>,
-    >(
-        self,
-        derive_accounts: impl FnOnce(
-            &'data Accounts<'accounts, MAX_ACCOUNTS>,
-        ) -> Result<I, ProgramError>,
-    ) -> Result<Self, ProgramError> {
-        let Self { accounts, mut cpi } = self;
-        let len = derive_accounts(accounts)?
-            .into_iter()
-            .try_fold(0, |len, (handle, perm)| {
-                if len >= MAX_CPI_ACCOUNTS {
-                    return Err(ProgramError::from_builtin(
-                        BuiltInProgramError::InvalidArgument,
-                    ));
-                }
-                let acc = accounts.get_ptr(handle);
-                // index-safety: bounds checked against MAX_CPI_ACCOUNTS above
-                // write-safety: CpiAccountMeta and CpiAccount are Copy,
-                // dont care about overwriting old data
-                cpi.cpi.metas[len].write(CpiAccountMeta::new(acc, perm));
-                // we technically dont need to pass duplicate AccountInfos
-                // but making metas correspond 1:1 with accounts just makes it easier.
-                // This allows us to store one less u64 in `PreparedCpi`
-                // thanks to invariant of metas.len() == accounts.len()
-                //
-                // We've also unfortunately erased duplicate flag info when
-                // creating the `Accounts` struct.
-                cpi.cpi.accounts[len].write(CpiAccount::from_ptr(acc));
-                Ok(len + 1)
-            })?;
-        cpi.accs_len = len as u64;
-        Ok(Self { cpi, accounts })
-    }
-
-    #[inline]
-    pub fn try_with_accounts(
-        self,
-        accounts: impl IntoIterator<Item = (AccountHandle<'accounts>, AccountPerms)>,
-    ) -> Result<Self, ProgramError> {
-        self.try_with_derive_accounts(|_a| Ok(accounts))
-    }
-
-    #[inline]
-    pub fn try_with_derive_accounts_fwd<I: IntoIterator<Item = AccountHandle<'accounts>>>(
-        self,
-        derive_accounts: impl FnOnce(
-            &'data Accounts<'accounts, MAX_ACCOUNTS>,
-        ) -> Result<I, ProgramError>,
-    ) -> Result<Self, ProgramError> {
-        let Self { accounts, mut cpi } = self;
-        let len = derive_accounts(accounts)?
-            .into_iter()
-            .try_fold(0, |len, handle| {
-                if len >= MAX_CPI_ACCOUNTS {
-                    return Err(ProgramError::from_builtin(
-                        BuiltInProgramError::InvalidArgument,
-                    ));
-                }
-                let acc = accounts.get_ptr(handle);
-
-                // this fn's code should be the exact same as
-                // [`Self::try_with_accounts`] except for this line here:
-                cpi.cpi.metas[len].write(CpiAccountMeta::fwd(acc));
-
-                cpi.cpi.accounts[len].write(CpiAccount::from_ptr(acc));
-                Ok(len + 1)
-            })?;
-        cpi.accs_len = len as u64;
-        Ok(Self { cpi, accounts })
-    }
-
-    #[inline]
-    pub fn try_with_accounts_fwd(
-        self,
-        accounts: impl IntoIterator<Item = AccountHandle<'accounts>>,
-    ) -> Result<Self, ProgramError> {
-        self.try_with_derive_accounts_fwd(|_a| Ok(accounts))
-    }
-}
-
-impl<'cpi, const MAX_CPI_ACCOUNTS: usize, const MAX_ACCOUNTS: usize>
-    CpiBuilder<'cpi, '_, '_, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, true>
-{
-    /// # Safety
-    /// Until the returned [`PreparedCpi`] is dropped, `accounts` must not be mutated after
-    /// calling this method apart from the returned struct's [`PreparedCpi::invoke`], else UB.
-    #[inline]
-    pub const unsafe fn build(self) -> PreparedCpi<'cpi, MAX_CPI_ACCOUNTS> {
-        self.cpi
-    }
-}
-
-/// A CPI that's ready to invoke.
-///
-/// Only way to obtain this struct is via [`CpiBuilder::build`]
-#[derive(Debug)]
-pub struct PreparedCpi<'cpi, const MAX_CPI_ACCOUNTS: usize> {
+    accounts: &'cpi mut Accounts<'accounts, MAX_ACCOUNTS>,
     cpi: &'cpi mut Cpi<MAX_CPI_ACCOUNTS>,
     accs_len: u64,
     prog_id: *const [u8; 32],
@@ -431,14 +190,294 @@ pub struct PreparedCpi<'cpi, const MAX_CPI_ACCOUNTS: usize> {
     signers_seeds_len: u64,
 }
 
-impl<const MAX_CPI_ACCOUNTS: usize> PreparedCpi<'_, MAX_CPI_ACCOUNTS> {
-    /// Each `PreparedCpi` is only valid for one-time use because
-    /// a CPI may realloc an account, invalidating its `CpiAccount::data_len`
+/// Constructors
+impl<'cpi, 'accounts, const MAX_CPI_ACCOUNTS: usize, const MAX_ACCOUNTS: usize>
+    CpiBuilder<'cpi, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, false>
+{
     #[inline]
-    pub fn invoke<const MAX_ACCOUNTS: usize>(
+    pub const fn new(
+        cpi: &'cpi mut Cpi<MAX_CPI_ACCOUNTS>,
+        accounts: &'cpi mut Accounts<'accounts, MAX_ACCOUNTS>,
+    ) -> Self {
+        Self {
+            accounts,
+            cpi,
+            accs_len: 0,
+            prog_id: core::ptr::null(),
+            data: [].as_ptr(),
+            data_len: 0,
+            signers_seeds: [].as_ptr(),
+            signers_seeds_len: 0,
+        }
+    }
+}
+
+impl<
+        'cpi,
+        'accounts,
+        const MAX_CPI_ACCOUNTS: usize,
+        const MAX_ACCOUNTS: usize,
+        const HAS_PROG_ID: bool,
+    > CpiBuilder<'cpi, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, HAS_PROG_ID>
+{
+    // prog ID
+
+    #[inline]
+    pub fn try_with_derive_prog_id<E>(
         self,
-        _accounts: &mut Accounts<'_, MAX_ACCOUNTS>,
+        derive_prog_id: impl for<'a> FnOnce(
+            &'a Accounts<'accounts, MAX_ACCOUNTS>,
+        ) -> Result<&'a [u8; 32], E>,
+    ) -> Result<CpiBuilder<'cpi, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, true>, E> {
+        let Self {
+            accounts,
+            cpi,
+            accs_len,
+            data,
+            data_len,
+            signers_seeds,
+            signers_seeds_len,
+            prog_id: _,
+        } = self;
+        let prog_id = derive_prog_id(accounts)?.as_ptr().cast();
+        Ok(CpiBuilder {
+            cpi,
+            accounts,
+            accs_len,
+            prog_id,
+            data,
+            data_len,
+            signers_seeds,
+            signers_seeds_len,
+        })
+    }
+
+    #[inline]
+    pub fn with_derive_prog_id(
+        self,
+        derive_prog_id: impl for<'a> FnOnce(&'a Accounts<'accounts, MAX_ACCOUNTS>) -> &'a [u8; 32],
+    ) -> CpiBuilder<'cpi, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, true> {
+        self.try_with_derive_prog_id(|a| Ok::<_, Infallible>(derive_prog_id(a)))
+            .unwrap()
+    }
+
+    #[inline]
+    pub fn with_prog_handle(
+        self,
+        handle: AccountHandle<'accounts>,
+    ) -> CpiBuilder<'cpi, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, true> {
+        self.with_derive_prog_id(|a| a.get(handle).key())
+    }
+
+    #[inline]
+    pub fn with_prog_id<'a: 'cpi>(
+        self,
+        prog_id: &'a [u8; 32],
+    ) -> CpiBuilder<'cpi, 'accounts, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, true> {
+        let Self {
+            accounts,
+            cpi,
+            accs_len,
+            data,
+            data_len,
+            signers_seeds,
+            signers_seeds_len,
+            prog_id: _,
+        } = self;
+        CpiBuilder {
+            cpi,
+            accounts,
+            accs_len,
+            prog_id,
+            data,
+            data_len,
+            signers_seeds,
+            signers_seeds_len,
+        }
+    }
+
+    // ix data
+
+    #[inline]
+    pub fn try_with_derive_ix_data<E>(
+        mut self,
+        derive_ix_data: impl for<'a> FnOnce(
+            &'a Accounts<'accounts, MAX_ACCOUNTS>,
+        ) -> Result<&'a [u8], E>,
+    ) -> Result<Self, E> {
+        let data = derive_ix_data(self.accounts)?;
+        self.data = data.as_ptr();
+        self.data_len = data.len() as u64;
+        Ok(self)
+    }
+
+    #[inline]
+    pub fn with_derive_ix_data(
+        self,
+        derive_ix_data: impl for<'a> FnOnce(&'a Accounts<'accounts, MAX_ACCOUNTS>) -> &'a [u8],
+    ) -> Self {
+        self.try_with_derive_ix_data(|a| Ok::<_, Infallible>(derive_ix_data(a)))
+            .unwrap()
+    }
+
+    #[inline]
+    pub fn with_ix_data<'a: 'cpi>(mut self, ix_data: &'a [u8]) -> Self {
+        self.data = ix_data.as_ptr();
+        self.data_len = ix_data.len() as u64;
+        self
+    }
+
+    // signers
+
+    // Not much practicality for this right now due to the 2 levels of pointer indirection
+    // for &[PdaSigner] so its really hard to something like point to seeds stored in account data
+    #[inline]
+    pub fn try_with_derive_pda_signers<E>(
+        mut self,
+        derive_pda_signers: impl for<'a> FnOnce(
+            &'a Accounts<'accounts, MAX_ACCOUNTS>,
+        ) -> Result<&'a [PdaSigner<'a, 'a>], E>,
+    ) -> Result<Self, E> {
+        let signers = derive_pda_signers(self.accounts)?;
+        self.signers_seeds = signers.as_ptr().cast();
+        self.signers_seeds_len = signers.len() as u64;
+        Ok(self)
+    }
+
+    #[inline]
+    pub fn with_derive_pda_signers(
+        self,
+        derive_pda_signers: impl for<'a> FnOnce(
+            &'a Accounts<'accounts, MAX_ACCOUNTS>,
+        ) -> &'a [PdaSigner<'a, 'a>],
+    ) -> Self {
+        self.try_with_derive_pda_signers(|a| Ok::<_, Infallible>(derive_pda_signers(a)))
+            .unwrap()
+    }
+
+    #[inline]
+    pub fn with_pda_signers<'a: 'cpi>(mut self, signers: &'a [PdaSigner]) -> Self {
+        self.signers_seeds = signers.as_ptr().cast();
+        self.signers_seeds_len = signers.len() as u64;
+        self
+    }
+
+    // accounts
+
+    #[inline]
+    pub fn try_derive_accounts<
+        'a,
+        I: IntoIterator<Item = (AccountHandle<'accounts>, AccountPerms)>,
+        F: FnOnce(&'a Accounts<'accounts, MAX_ACCOUNTS>) -> Result<I, ProgramError>,
+    >(
+        // cant do with self -> Self syntax here because
+        // we need to tie the lifetime of &mut self to F
+        // else rust cant figure out the right lifetimes
+        &'a mut self,
+        derive_accounts: F,
+    ) -> Result<(), ProgramError>
+    where
+        'accounts: 'a,
+        'cpi: 'a,
+    {
+        let len =
+            derive_accounts(self.accounts)?
+                .into_iter()
+                .try_fold(0, |len, (handle, perm)| {
+                    if len >= MAX_CPI_ACCOUNTS {
+                        return Err(ProgramError::from_builtin(
+                            BuiltInProgramError::InvalidArgument,
+                        ));
+                    }
+                    let acc = self.accounts.get_ptr(handle);
+                    // index-safety: bounds checked against MAX_CPI_ACCOUNTS above
+                    // write-safety: CpiAccountMeta and CpiAccount are Copy,
+                    // dont care about overwriting old data
+                    self.cpi.metas[len].write(CpiAccountMeta::new(acc, perm));
+                    // we technically dont need to pass duplicate AccountInfos
+                    // but making metas correspond 1:1 with accounts just makes it easier.
+                    // This allows us to store one less u64
+                    // thanks to invariant of metas.len() == accounts.len()
+                    //
+                    // We've also unfortunately erased duplicate flag info when
+                    // creating the `Accounts` struct.
+                    self.cpi.accounts[len].write(CpiAccount::from_ptr(acc));
+                    Ok(len + 1)
+                })?;
+        self.accs_len = len as u64;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn try_add_accounts(
+        &mut self,
+        accounts: impl IntoIterator<Item = (AccountHandle<'accounts>, AccountPerms)>,
     ) -> Result<(), ProgramError> {
+        self.try_derive_accounts(|_| Ok(accounts))
+    }
+
+    #[inline]
+    pub fn try_derive_accounts_fwd<
+        'a,
+        I: IntoIterator<Item = AccountHandle<'accounts>>,
+        F: FnOnce(&'a Accounts<'accounts, MAX_ACCOUNTS>) -> Result<I, ProgramError>,
+    >(
+        // cant do with self -> Self syntax here because
+        // we need to tie the lifetime of &mut self to F
+        // else rust cant figure out the right lifetimes
+        &'a mut self,
+        derive_accounts: F,
+    ) -> Result<(), ProgramError>
+    where
+        'accounts: 'a,
+        'cpi: 'a,
+    {
+        let len = derive_accounts(self.accounts)?
+            .into_iter()
+            .try_fold(0, |len, handle| {
+                if len >= MAX_CPI_ACCOUNTS {
+                    return Err(ProgramError::from_builtin(
+                        BuiltInProgramError::InvalidArgument,
+                    ));
+                }
+                let acc = self.accounts.get_ptr(handle);
+
+                // this fn's code should be the exact same as
+                // [`Self::try_with_accounts`] except for this line here:
+                self.cpi.metas[len].write(CpiAccountMeta::fwd(acc));
+
+                self.cpi.accounts[len].write(CpiAccount::from_ptr(acc));
+                Ok(len + 1)
+            })?;
+        self.accs_len = len as u64;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn try_add_accounts_fwd(
+        &mut self,
+        accounts: impl IntoIterator<Item = AccountHandle<'accounts>>,
+    ) -> Result<(), ProgramError> {
+        self.try_derive_accounts_fwd(|_| Ok(accounts))
+    }
+}
+
+impl<const MAX_CPI_ACCOUNTS: usize, const MAX_ACCOUNTS: usize>
+    CpiBuilder<'_, '_, MAX_CPI_ACCOUNTS, MAX_ACCOUNTS, true>
+{
+    #[inline]
+    pub fn invoke(self) -> Result<(), ProgramError> {
+        let Self {
+            cpi,
+            accs_len,
+            prog_id,
+            data,
+            data_len,
+            signers_seeds,
+            signers_seeds_len,
+            // not used, just here to guarantee exclusive borrow of Accounts
+            accounts: _,
+        } = self;
         #[cfg(target_os = "solana")]
         {
             /// This struct has the memory layout as expected by `sol_invoke_signed_c` syscall.
@@ -462,11 +501,11 @@ impl<const MAX_CPI_ACCOUNTS: usize> PreparedCpi<'_, MAX_CPI_ACCOUNTS> {
             }
 
             let ix = CpiInstruction {
-                program_id: self.prog_id,
-                metas: self.cpi.metas.as_ptr().cast(),
-                metas_len: self.accs_len,
-                data: self.data,
-                data_len: self.data_len,
+                program_id: prog_id,
+                metas: cpi.metas.as_ptr().cast(),
+                metas_len: accs_len,
+                data,
+                data_len,
             };
 
             // safety: mut borrow of `&mut Accounts` ensures
@@ -474,10 +513,10 @@ impl<const MAX_CPI_ACCOUNTS: usize> PreparedCpi<'_, MAX_CPI_ACCOUNTS> {
             let res = unsafe {
                 jiminy_syscall::sol_invoke_signed_c(
                     core::ptr::addr_of!(ix).cast(),
-                    self.cpi.accounts.as_ptr().cast(),
-                    self.accs_len,
-                    self.signers_seeds,
-                    self.signers_seeds_len,
+                    cpi.accounts.as_ptr().cast(),
+                    accs_len,
+                    signers_seeds,
+                    signers_seeds_len,
                 )
             };
             match core::num::NonZeroU64::new(res) {
@@ -488,7 +527,37 @@ impl<const MAX_CPI_ACCOUNTS: usize> PreparedCpi<'_, MAX_CPI_ACCOUNTS> {
 
         #[cfg(not(target_os = "solana"))]
         {
+            // avoid unused warnings
+            core::hint::black_box((
+                cpi,
+                accs_len,
+                prog_id,
+                data,
+                data_len,
+                signers_seeds,
+                signers_seeds_len,
+            ));
             unreachable!()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[allow(unused)]
+    fn lifetime_comptime_playground<'cpi, 'accounts>(
+        accounts: &'cpi mut Accounts<'accounts>,
+        cpi: &'cpi mut Cpi,
+        slice: &[u8],
+    ) -> CpiBuilder<'cpi, 'accounts, 48, 128, false> {
+        let h = *accounts.as_slice().first().unwrap();
+        let mut signer: PdaSeedArr<'_> = PdaSeedArr::new();
+
+        let mut a = CpiBuilder::new(cpi, accounts).with_derive_ix_data(|a| a.get(h).data());
+        a.try_derive_accounts_fwd(|accs| Ok(accs.as_slice().iter().copied()))
+            .unwrap();
+        a
     }
 }
