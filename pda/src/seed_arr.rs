@@ -94,7 +94,7 @@ impl<'seed, const MAX_SEEDS: usize> PdaSeedArr<'seed, MAX_SEEDS> {
     /// # Safety
     /// - self must have at least 2 more empty slots
     #[inline(always)]
-    pub unsafe fn for_create_raw_unchecked(&mut self, prog_id: &[u8; 32]) {
+    pub unsafe fn for_create_raw_unchecked(&mut self, prog_id: &'seed [u8; 32]) {
         self.push_unchecked(PdaSeed::new(prog_id));
         self.push_unchecked(PdaSeed::new(&PDA_MARKER));
     }

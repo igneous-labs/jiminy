@@ -93,11 +93,12 @@ pub unsafe fn deser_accounts<const MAX_ACCOUNTS: usize>(
 
 /// Runtime deserialization internals
 impl AccountHandle<'_> {
-    /// Returns (pointer to start of next account or instruction data if last account, deserialized account)
+    /// Returns (pointer to start of next account or instruction data if last account, deserialized account).
     ///
     /// # Safety
     /// - ptr must be pointing to the start of a non-duplicate account
     ///   in the runtime serialized buffer
+    /// - note that lifetime of returned `Self` is unbounded
     #[inline]
     pub(crate) unsafe fn non_dup_from_ptr(ptr: *mut u8) -> (*mut u8, Self) {
         let inner: *mut Account = ptr.cast();
