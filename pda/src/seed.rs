@@ -9,25 +9,27 @@ pub struct PdaSeed<'seed> {
     _byte_slice: PhantomData<&'seed [u8]>,
 }
 
-impl PdaSeed<'_> {
+impl<'seed> PdaSeed<'seed> {
     #[inline(always)]
-    pub const fn new(seed: &[u8]) -> Self {
+    pub const fn new(seed: &'seed [u8]) -> Self {
         Self {
             ptr: seed.as_ptr(),
             len: seed.len() as u64,
             _byte_slice: PhantomData,
         }
     }
+}
 
+impl PdaSeed<'_> {
     #[inline(always)]
     pub const fn as_slice(&self) -> &[u8] {
         unsafe { core::slice::from_raw_parts(self.ptr, self.len as usize) }
     }
 }
 
-impl From<&[u8]> for PdaSeed<'_> {
+impl<'seed> From<&'seed [u8]> for PdaSeed<'seed> {
     #[inline(always)]
-    fn from(value: &[u8]) -> Self {
+    fn from(value: &'seed [u8]) -> Self {
         Self::new(value)
     }
 }
