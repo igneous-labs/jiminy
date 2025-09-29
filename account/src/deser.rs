@@ -74,7 +74,9 @@ pub unsafe fn deser_accounts<const MAX_ACCOUNTS: usize>(
     // into accounts. Results in reduced CUs per account
     let input = (saved_accounts_len..accounts_len).fold(input, |input, _| match input.read() {
         NON_DUP_MARKER => AccountHandle::non_dup_from_ptr(input, &accounts).0,
-        dup_idx => AccountHandle::dup_from_ptr(input, dup_idx, &accounts).0,
+        // do not use AccountHandle::dup_from_ptr here or `accounts.get_unchecked().assume_init()`
+        // will OOB (UB) if dup_idx is pointing to idx >= saved_accounts_len
+        _dup_idx => input.add(8),
     });
 
     (
@@ -118,6 +120,9 @@ impl<'account> AccountHandle<'account> {
     }
 
     /// Factored out into its own fn so that we can stick #[cold] on it
+    ///
+    /// # Safety
+    /// - `dup_idx` must be within range of `accounts`
     #[cold]
     #[inline]
     unsafe fn dup_from_ptr(
