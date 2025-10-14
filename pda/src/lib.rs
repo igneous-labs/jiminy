@@ -140,9 +140,9 @@ pub fn create_program_address_to<'dst>(
 ///
 /// # Args
 /// - `for_create_raw` - In order to fit into the format of the `sol_sha256` syscall, this should
-///                      be the slice of seeds (including the bump seed), followed by the program ID as a [`PdaSeed`],
-///                      followed by [`PDA_MARKER`] as a [`PdaSeed`]. The last 2 elems can be
-///                      appended to a [`PdaSeedArr`] using [`PdaSeedArr::for_create_raw`].
+///   be the slice of seeds (including the bump seed), followed by the program ID as a [`PdaSeed`],
+///   followed by [`PDA_MARKER`] as a [`PdaSeed`]. The last 2 elems can be
+///   appended to a [`PdaSeedArr`] using [`PdaSeedArr::for_create_raw`].
 ///
 /// # Safety
 ///
