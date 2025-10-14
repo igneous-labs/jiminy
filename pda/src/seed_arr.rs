@@ -64,7 +64,7 @@ impl<'seed, const MAX_SEEDS: usize> PdaSeedArr<'seed, MAX_SEEDS> {
 
     #[inline(always)]
     pub const fn is_full(&self) -> bool {
-        self.len() == MAX_SEEDS
+        self.len() >= MAX_SEEDS
     }
 
     #[inline(always)]
