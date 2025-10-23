@@ -8,6 +8,8 @@ use crate::{Abr, AccountHandle, MAX_TX_ACCOUNTS};
 // ops like zeroing out the high bits of the register etc
 
 /// This newtype must be consumed to create an [`Abr`], guaranteeing only 1 `Abr` per program
+///
+/// The only way to legally obtain this struct is using [`crate::deser_accounts`]
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct DeserAccounts<'account, const MAX_ACCOUNTS: usize>(
@@ -29,7 +31,7 @@ impl<'account, const MAX_ACCOUNTS: usize> DeserAccounts<'account, MAX_ACCOUNTS> 
 ///
 /// `MAX_TX_ACCOUNTS` is max capacity of accounts, must be <= 255.
 ///
-/// The only way to legally obtain this struct is using [`crate::deser_accounts`]
+/// The only way to legally obtain this struct is using [`DeserAccounts::etp_start`]
 #[derive(Debug)]
 pub struct Accounts<'account, const MAX_ACCOUNTS: usize = MAX_TX_ACCOUNTS> {
     pub(crate) accounts: [MaybeUninit<AccountHandle<'account>>; MAX_ACCOUNTS],
