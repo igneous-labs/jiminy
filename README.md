@@ -67,7 +67,7 @@ fn process_ix(
 
 Instead of using [`RefCell`](https://doc.rust-lang.org/std/cell/struct.RefCell.html)s (maybe wrapped in an [`Rc`](https://doc.rust-lang.org/std/rc/struct.Rc.html)) to implement dynamic borrow checking at runtime like the other libraries, jiminy solves the issue of aliasing duplicated accounts at compile-time.
 
-It does so by creating a handle system for accounts, represented by `jiminy_account::AccountHandle`. These handles are inert until used to borrow an account. To borrow from a handle, the user must borrow the global singleton `jiminy_account::Abr` at the same time. This simulates the behaviour of borrowing a single element from a safe collections data structure (`Vec`, `HashMap`, etc) resulting in the entire collection being borrowed. So at any one time, either multiple accounts are immutably borrowed, or a single account is mutable borrowed.
+It does so by creating a handle system for accounts, represented by `jiminy_account::AccountHandle`. These handles are inert until used to borrow an account. To borrow from a handle, the user must borrow the global singleton `jiminy_account::Abr` at the same time. So at any one time, either multiple accounts are immutably borrowed, or a single account is mutably borrowed.
 
 ```rust,compile_fail,E0502
 use jiminy_account::{Abr, AccountHandle};
