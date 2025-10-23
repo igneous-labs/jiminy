@@ -56,10 +56,12 @@ macro_rules! program_entrypoint {
                 panic!("max accounts must be <= u8::MAX")
             };
 
-            let (mut accounts, instruction_data, program_id) =
-                $crate::deserialize::<$maximum>(input);
+            let (accounts, instruction_data, program_id) = $crate::deserialize::<$maximum>(input);
 
-            match $process_instruction(&mut accounts, instruction_data, program_id) {
+            let (mut abr, accounts) = accounts.etp_start();
+
+            match $process_instruction(&mut abr, accounts.as_slice(), instruction_data, program_id)
+            {
                 Ok(()) => $crate::SUCCESS,
                 Err(error) => error.into(),
             }
@@ -77,7 +79,7 @@ macro_rules! program_entrypoint {
 pub unsafe fn deserialize<const MAX_ACCOUNTS: usize>(
     input: *mut u8,
 ) -> (
-    Accounts<'static, MAX_ACCOUNTS>,
+    DeserAccounts<'static, MAX_ACCOUNTS>,
     &'static [u8],
     &'static [u8; 32],
 ) {
@@ -101,8 +103,9 @@ mod tests {
     /// Can only have 1 unit-test like this due to no_mangle of fn entrypoint()
     #[test]
     fn comptime_check_entrypoint_types_generic() {
-        fn process_ix_const_generic<const MAX_ACCOUNTS: usize>(
-            _accounts: &mut Accounts<'_, MAX_ACCOUNTS>,
+        fn process_ix_const_generic(
+            _abr: &mut Abr,
+            _accounts: &[AccountHandle<'_>],
             _data: &[u8],
             _prog_id: &[u8; 32],
         ) -> Result<(), ProgramError> {

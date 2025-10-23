@@ -86,6 +86,8 @@ impl<const HEAP_LENGTH: usize> Allogator<HEAP_LENGTH> {
 
     #[inline]
     pub const fn new() -> Self {
+        // is_multiple_of doesnt exist in rustc 1.84 yet
+        #[allow(clippy::manual_is_multiple_of)]
         const {
             assert!(HEAP_LENGTH % 1024 == 0);
             assert!(HEAP_LENGTH > 0);

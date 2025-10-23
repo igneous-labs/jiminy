@@ -5,6 +5,7 @@
 //! e.g. [`primitive::slice::split_at_mut`] might give 2 mutable slices where an element in both subslices point to the same
 //! underlying Account due to solana runtime duplication, resulting in the possibility of simultaneous mutable borrow UB
 
+mod abr;
 mod accounts;
 
 use core::{
@@ -13,6 +14,7 @@ use core::{
     hash::{Hash, Hasher},
 };
 
+pub use abr::*;
 pub use accounts::*;
 
 use crate::Account;

@@ -9,8 +9,8 @@
 use core::{cell::UnsafeCell, cmp::min, mem::MaybeUninit};
 
 use crate::{
-    Account, AccountHandle, Accounts, BPF_ALIGN_OF_U128, MAX_PERMITTED_DATA_INCREASE,
-    NON_DUP_MARKER,
+    Account, AccountHandle, Accounts, DeserAccounts, BPF_ALIGN_OF_U128,
+    MAX_PERMITTED_DATA_INCREASE, NON_DUP_MARKER,
 };
 
 /// # Returns
@@ -30,7 +30,7 @@ use crate::{
 pub unsafe fn deser_accounts<const MAX_ACCOUNTS: usize>(
     _scope: &(),
     input: *mut u8,
-) -> (*mut u8, Accounts<'_, MAX_ACCOUNTS>) {
+) -> (*mut u8, DeserAccounts<'_, MAX_ACCOUNTS>) {
     // this is uninit, interior mutable const shouldnt affect it
     #[allow(clippy::declare_interior_mutable_const)]
     const UNINIT: MaybeUninit<AccountHandle<'_>> = MaybeUninit::uninit();
@@ -86,10 +86,10 @@ pub unsafe fn deser_accounts<const MAX_ACCOUNTS: usize>(
         // but the compiler couldnt figure out that it could accumulate the final length
         // and only set it at the end so it was doing the absolutely redacted thing of
         // load-increment-store (3x the instructions!!!) on every iteration of deserializing an account.
-        Accounts {
+        DeserAccounts(Accounts {
             accounts,
             len: saved_accounts_len,
-        },
+        }),
     )
 }
 
