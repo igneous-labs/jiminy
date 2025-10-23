@@ -103,12 +103,12 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
         signers_seeds: &[PdaSigner],
     ) -> Result<(), ProgramError> {
-        let mut c = CpiBuilder::new(self, abr)
+        CpiBuilder::new(self, abr)
             .with_prog_id(cpi_prog_id)
             .with_ix_data(cpi_ix_data)
-            .with_pda_signers(signers_seeds);
-        c.try_add_accounts(cpi_accounts)?;
-        c.invoke()
+            .with_pda_signers(signers_seeds)
+            .with_accounts(cpi_accounts)?
+            .invoke()
     }
 
     /// In general this is more CU optimal than [`Self::invoke_signed`]
@@ -123,12 +123,12 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         cpi_accounts: impl IntoIterator<Item = (AccountHandle<'account>, AccountPerms)>,
         signers_seeds: &[PdaSigner],
     ) -> Result<(), ProgramError> {
-        let mut c = CpiBuilder::new(self, abr)
+        CpiBuilder::new(self, abr)
             .with_prog_handle(cpi_prog)
             .with_ix_data(cpi_ix_data)
-            .with_pda_signers(signers_seeds);
-        c.try_add_accounts(cpi_accounts)?;
-        c.invoke()
+            .with_pda_signers(signers_seeds)
+            .with_accounts(cpi_accounts)?
+            .invoke()
     }
 
     /// CPI, but unlike [`Self::invoke_signed`], simply forwards the [`AccountPerms`] of each
@@ -145,11 +145,11 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         cpi_ix_data: &[u8],
         cpi_accounts: impl IntoIterator<Item = AccountHandle<'account>>,
     ) -> Result<(), ProgramError> {
-        let mut c = CpiBuilder::new(self, abr)
+        CpiBuilder::new(self, abr)
             .with_prog_id(cpi_prog_id)
-            .with_ix_data(cpi_ix_data);
-        c.try_add_accounts_fwd(cpi_accounts)?;
-        c.invoke()
+            .with_ix_data(cpi_ix_data)
+            .with_accounts_fwd(cpi_accounts)?
+            .invoke()
     }
 
     /// In general this is more CU optimal than [`Self::invoke_signed`]
@@ -163,11 +163,11 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
         cpi_ix_data: &[u8],
         cpi_accounts: impl IntoIterator<Item = AccountHandle<'account>>,
     ) -> Result<(), ProgramError> {
-        let mut c = CpiBuilder::new(self, abr)
+        CpiBuilder::new(self, abr)
             .with_prog_handle(cpi_prog)
-            .with_ix_data(cpi_ix_data);
-        c.try_add_accounts_fwd(cpi_accounts)?;
-        c.invoke()
+            .with_ix_data(cpi_ix_data)
+            .with_accounts_fwd(cpi_accounts)?
+            .invoke()
     }
 }
 
@@ -341,101 +341,60 @@ impl<'cpi, const MAX_CPI_ACCOUNTS: usize, const HAS_PROG_ID: bool>
     // accounts
 
     #[inline]
-    pub fn try_derive_accounts<
-        'a,
+    pub fn with_accounts<
         'accounts,
         I: IntoIterator<Item = (AccountHandle<'accounts>, AccountPerms)>,
-        F: FnOnce(&'a Abr) -> Result<I, ProgramError>,
     >(
-        // cant do with self -> Self syntax here because
-        // we need to tie the lifetime of &mut self to F
-        // else rust cant figure out the right lifetimes
-        &'a mut self,
-        derive_accounts: F,
-    ) -> Result<(), ProgramError>
-    where
-        'accounts: 'a,
-        'cpi: 'a,
-    {
-        let len = derive_accounts(self.abr)?
-            .into_iter()
-            .try_fold(0, |len, (handle, perm)| {
-                if len >= MAX_CPI_ACCOUNTS {
-                    return Err(ProgramError::from_builtin(
-                        BuiltInProgramError::InvalidArgument,
-                    ));
-                }
-                let acc = self.abr.get_ptr(handle);
-                // index-safety: bounds checked against MAX_CPI_ACCOUNTS above
-                // write-safety: CpiAccountMeta and CpiAccount are Copy,
-                // dont care about overwriting old data
-                self.cpi.metas[len].write(CpiAccountMeta::new(acc, perm));
-                // we technically dont need to pass duplicate AccountInfos
-                // but making metas correspond 1:1 with accounts just makes it easier.
-                // This allows us to store one less u64
-                // thanks to invariant of metas.len() == accounts.len()
-                //
-                // We've also unfortunately erased duplicate flag info when
-                // creating the `Accounts` struct.
-                self.cpi.accounts[len].write(CpiAccount::from_ptr(acc));
-                Ok(len + 1)
-            })?;
+        mut self,
+        accounts: I,
+    ) -> Result<Self, ProgramError> {
+        let len = accounts.into_iter().try_fold(0, |len, (handle, perm)| {
+            if len >= MAX_CPI_ACCOUNTS {
+                return Err(ProgramError::from_builtin(
+                    BuiltInProgramError::InvalidArgument,
+                ));
+            }
+            let acc = self.abr.get_ptr(handle);
+            // index-safety: bounds checked against MAX_CPI_ACCOUNTS above
+            // write-safety: CpiAccountMeta and CpiAccount are Copy,
+            // dont care about overwriting old data
+            self.cpi.metas[len].write(CpiAccountMeta::new(acc, perm));
+            // we technically dont need to pass duplicate AccountInfos
+            // but making metas correspond 1:1 with accounts just makes it easier.
+            // This allows us to store one less u64
+            // thanks to invariant of metas.len() == accounts.len()
+            //
+            // We've also unfortunately erased duplicate flag info when
+            // creating the `Accounts` struct.
+            self.cpi.accounts[len].write(CpiAccount::from_ptr(acc));
+            Ok(len + 1)
+        })?;
         self.accs_len = len as u64;
-        Ok(())
+        Ok(self)
     }
 
     #[inline]
-    pub fn try_add_accounts<'accounts>(
-        &mut self,
-        accounts: impl IntoIterator<Item = (AccountHandle<'accounts>, AccountPerms)>,
-    ) -> Result<(), ProgramError> {
-        self.try_derive_accounts(|_| Ok(accounts))
-    }
+    pub fn with_accounts_fwd<'accounts, I: IntoIterator<Item = AccountHandle<'accounts>>>(
+        mut self,
+        accounts: I,
+    ) -> Result<Self, ProgramError> {
+        let len = accounts.into_iter().try_fold(0, |len, handle| {
+            if len >= MAX_CPI_ACCOUNTS {
+                return Err(ProgramError::from_builtin(
+                    BuiltInProgramError::InvalidArgument,
+                ));
+            }
+            let acc = self.abr.get_ptr(handle);
 
-    #[inline]
-    pub fn try_derive_accounts_fwd<
-        'a,
-        'accounts,
-        I: IntoIterator<Item = AccountHandle<'accounts>>,
-        F: FnOnce(&'a Abr) -> Result<I, ProgramError>,
-    >(
-        // cant do with self -> Self syntax here because
-        // we need to tie the lifetime of &mut self to F
-        // else rust cant figure out the right lifetimes
-        &'a mut self,
-        derive_accounts: F,
-    ) -> Result<(), ProgramError>
-    where
-        'accounts: 'a,
-        'cpi: 'a,
-    {
-        let len = derive_accounts(self.abr)?
-            .into_iter()
-            .try_fold(0, |len, handle| {
-                if len >= MAX_CPI_ACCOUNTS {
-                    return Err(ProgramError::from_builtin(
-                        BuiltInProgramError::InvalidArgument,
-                    ));
-                }
-                let acc = self.abr.get_ptr(handle);
+            // this fn's code should be the exact same as
+            // [`Self::try_with_accounts`] except for this line here:
+            self.cpi.metas[len].write(CpiAccountMeta::fwd(acc));
 
-                // this fn's code should be the exact same as
-                // [`Self::try_with_accounts`] except for this line here:
-                self.cpi.metas[len].write(CpiAccountMeta::fwd(acc));
-
-                self.cpi.accounts[len].write(CpiAccount::from_ptr(acc));
-                Ok(len + 1)
-            })?;
+            self.cpi.accounts[len].write(CpiAccount::from_ptr(acc));
+            Ok(len + 1)
+        })?;
         self.accs_len = len as u64;
-        Ok(())
-    }
-
-    #[inline]
-    pub fn try_add_accounts_fwd<'accounts>(
-        &mut self,
-        accounts: impl IntoIterator<Item = AccountHandle<'accounts>>,
-    ) -> Result<(), ProgramError> {
-        self.try_derive_accounts_fwd(|_| Ok(accounts))
+        Ok(self)
     }
 }
 
@@ -531,9 +490,9 @@ mod tests {
         let h = *accounts.first().unwrap();
         let mut signer: PdaSeedArr<'_> = PdaSeedArr::new();
 
-        let mut a = CpiBuilder::new(cpi, abr).with_derive_ix_data(|a| a.get(h).data());
-        a.try_derive_accounts_fwd(|_accs| Ok(accounts.iter().copied()))
-            .unwrap();
-        a
+        CpiBuilder::new(cpi, abr)
+            .with_derive_ix_data(|a| a.get(h).data())
+            .with_accounts_fwd(accounts.iter().copied())
+            .unwrap()
     }
 }
