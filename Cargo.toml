@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "account",
     "cpi",
+    "doctest",
     "entrypoint",
     "log",
     "pda",

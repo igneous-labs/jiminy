@@ -647,6 +647,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "doctest"
+version = "0.1.0"
+dependencies = [
+ "jiminy-account",
+ "jiminy-cpi",
+ "jiminy-entrypoint",
+ "jiminy-pda",
+ "jiminy-program-error",
+ "jiminy-system-prog-interface",
+]
+
+[[package]]
 name = "eager"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -7,8 +7,16 @@ Yet another no-std no-dependencies library for writing solana programs.
 A simple jiminy program that CPIs the system program to transfer 1 SOL from the first input account to the second input account:
 
 ```rust
-use jiminy_cpi::{program_error::BuiltInProgramError, Cpi};
-use jiminy_entrypoint::program_error::ProgramError;
+#![allow(unexpected_cfgs)]
+
+use jiminy_entrypoint::{
+    account::{Abr, AccountHandle},
+    program_error::{
+        INVALID_INSTRUCTION_DATA,
+        NOT_ENOUGH_ACCOUNT_KEYS,
+        ProgramError,
+    }
+};
 use jiminy_system_prog_interface::{TransferIxAccs, TransferIxData};
 
 // Determines the maximum number of accounts that can be deserialized and
@@ -19,29 +27,31 @@ const MAX_ACCS: usize = 3;
 // excluding the program being invoked.
 const MAX_CPI_ACCS: usize = 2;
 
-const ONE_SOL_IN_LAMPORTS: u64 = 1_000_000_000;
+type Cpi = jiminy_cpi::Cpi<MAX_CPI_ACCS>;
 
-type Accounts<'account> = jiminy_entrypoint::account::Accounts<'account, MAX_ACCS>;
+const ONE_SOL_IN_LAMPORTS: u64 = 1_000_000_000;
 
 jiminy_entrypoint::entrypoint!(process_ix, MAX_ACCS);
 
 fn process_ix(
-    accounts: &mut Accounts,
-    _data: &[u8],
+    abr: &mut Abr,
+    accounts: &[AccountHandle<'_>],
+    data: &[u8],
     _prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
-    let (sys_prog, transfer_accs) = match accounts.as_slice().split_last_chunk() {
+    let (sys_prog, transfer_accs) = match accounts.split_last_chunk() {
         Some((&[sys_prog], ta)) => (sys_prog, TransferIxAccs(*ta)),
         _ => {
-            return Err(ProgramError::from_builtin(
-                BuiltInProgramError::NotEnoughAccountKeys,
-            ))
+            return Err(NOT_ENOUGH_ACCOUNT_KEYS.into())
         }
     };
 
-    let sys_prog_key = *accounts.get(sys_prog).key();
-    Cpi::<MAX_CPI_ACCS>::new().invoke_fwd(
-        accounts,
+    let data: &[u8; 8] = data.try_into().map_err(|_| INVALID_INSTRUCTION_DATA)?;
+    let trf_amt = u64::from_le_bytes(*data);
+
+    let sys_prog_key = *abr.get(sys_prog).key();
+    Cpi::new().invoke_fwd(
+        abr,
         &sys_prog_key,
         TransferIxData::new(trf_amt).as_buf(),
         transfer_accs.0,
@@ -55,27 +65,26 @@ fn process_ix(
 
 ### Account Handle System and Compile-Time Borrow Checking
 
-Instead of using [`RefCell`](https://doc.rust-lang.org/std/cell/struct.RefCell.html)s (maybe wrapped in an [`Rc`](https://doc.rust-lang.org/std/rc/struct.Rc.html)) to implement dynamic borrow checking at runtime
-like the other libraries, jiminy solves the issue of aliasing duplicated accounts at compile-time. It does so
-by encapsulating all deserialized accounts into a common `Accounts` collection that only allows
-at any time, either a single `Account` to be mutably borrowed or multiple `Account`s to be immutably borrowed, just as it is
-with any other safe collections data structure (`Vec`, `HashMap` etc) in Rust. Access is granted via dispensed `AccountHandle`s,
-which can be held across mutable accesses since they are inert until used.
+Instead of using [`RefCell`](https://doc.rust-lang.org/std/cell/struct.RefCell.html)s (maybe wrapped in an [`Rc`](https://doc.rust-lang.org/std/rc/struct.Rc.html)) to implement dynamic borrow checking at runtime like the other libraries, jiminy solves the issue of aliasing duplicated accounts at compile-time.
 
-```rust
+It does so by creating a handle system for accounts, represented by `jiminy_account::AccountHandle`. These handles are inert until used to borrow an account. To borrow from a handle, the user must borrow the global singleton `jiminy_account::Abr` at the same time. This simulates the behaviour of borrowing a single element from a safe collections data structure (`Vec`, `HashMap`, etc) resulting in the entire collection being borrowed. So at any one time, either multiple accounts are immutably borrowed, or a single account is mutable borrowed.
+
+```rust,compile_fail,E0502
+use jiminy_account::{Abr, AccountHandle};
+use jiminy_program_error::{NOT_ENOUGH_ACCOUNT_KEYS, ProgramError};
+
 fn process_ix(
-    accounts: &mut Accounts,
+    abr: &mut Abr,
+    accounts: &[AccountHandle<'_>],
     _data: &[u8],
     _prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
-    let [handle_a, handle_b] = *accounts.as_slice() else {
-        return Err(ProgramError::from_builtin(
-            BuiltInProgramError::NotEnoughAccountKeys,
-        ));
+    let [handle_a, handle_b] = *accounts else {
+        return Err(NOT_ENOUGH_ACCOUNT_KEYS.into());
     };
-    let a = accounts.get_mut(handle_a);
-    let b = accounts.get(handle_b);
-    a.dec_lamports(1); // this fails to compile with "cannot borrow accounts as immutable because it is also borrowed as mutable"
+    let a = abr.get_mut(handle_a);
+    let b = abr.get(handle_b);
+    a.dec_lamports(1); // this fails to compile with "cannot borrow abr as immutable because it is also borrowed as mutable"
     Ok(())
 }
 ```
@@ -88,6 +97,8 @@ related to handling of `RefCell`s is no longer required. Say goodbye to the drea
 In jiminy, `ProgramError` is simply defined as:
 
 ```rust
+use core::num::NonZeroU64;
+
 #[repr(transparent)]
 pub struct ProgramError(pub NonZeroU64);
 ```
@@ -99,7 +110,12 @@ to put into `r0` when the ebpf program exits.
 At the same time, convenience functions are still provided for easily creating the built-in errors.
 
 ```rust
-ProgramError::from_builtin(BuiltInProgramError::InvalidArgument)
+use jiminy_program_error::{INVALID_ARGUMENT, BuiltInProgramError, ProgramError};
+
+ProgramError::from_builtin(BuiltInProgramError::InvalidArgument);
+
+// ProgramError impls `From<NonZeroU64>`
+ProgramError::from(INVALID_ARGUMENT);
 ```
 
 ### CPI Overhaul
@@ -111,25 +127,63 @@ into the correct format and accumulating them in buffers so that they can be pas
 memory footprint.
 
 ```rust
-// simply Box::new() this if more space is
-// required than what is available on the stack.
-let mut cpi: Cpi = Cpi::new();
+use jiminy_cpi::Cpi;
+use jiminy_entrypoint::{
+    account::{Abr, AccountHandle},
+    program_error::{
+        INVALID_INSTRUCTION_DATA,
+        NOT_ENOUGH_ACCOUNT_KEYS,
+        ProgramError,
+    }
+};
+use jiminy_pda::{PdaSeed, PdaSigner};
+use jiminy_system_prog_interface::{AssignIxAccs, AssignIxData, TransferIxAccs, TransferIxData};
 
-cpi.invoke_fwd(
-    accounts,
-    &sys_prog_key,
-    TransferIxData::new(ONE_SOL_IN_LAMPORTS).as_buf(),
-    transfer_accs.0,
-)?;
+const MY_SEED: &[u8] = b"myseed";
+const BUMP: u8 = 254;
 
-// use the same allocation again for a completely different CPI
-cpi.invoke_signed(
-    accounts,
-    &sys_prog_key,
-    &AssignIxData::new(prog_id)
-    assign_accs.into_account_handle_perms(),
-    &[],
-)?;
+fn process_ix(
+    abr: &mut Abr,
+    accounts: &[AccountHandle<'_>],
+    _data: &[u8],
+    prog_id: &[u8; 32],
+) -> Result<(), ProgramError> {
+    let (transfer_accs, assign_accs, sys_prog) = match accounts
+        .split_first_chunk()
+        .and_then(|(t, s)| s.split_first_chunk().map(|(a, s)| (t, a, s))) {
+            Some((t, a, &[sys_prog, ..])) => (TransferIxAccs(*t), AssignIxAccs(*a), sys_prog),
+            _ => {
+                return Err(NOT_ENOUGH_ACCOUNT_KEYS.into())
+            }
+    };
+
+    // simply Box::new() this if more space is
+    // required than what is available on the stack.
+    let mut cpi: Cpi = Cpi::new();
+
+    cpi.invoke_fwd_handle(
+        abr,
+        sys_prog,
+        TransferIxData::new(1_000_000_000).as_buf(),
+        transfer_accs.0,
+    )?;
+
+    // use the same allocation again for a completely different CPI
+    cpi.invoke_signed_handle(
+        abr,
+        sys_prog,
+        AssignIxData::new(prog_id).as_buf(),
+        assign_accs.into_account_handle_perms(),
+        &[
+            PdaSigner::new(&[
+                PdaSeed::new(MY_SEED),
+                PdaSeed::new(core::slice::from_ref(&BUMP)),
+            ])
+        ],
+    )?;
+
+    Ok(())
+}
 ```
 
 ## Benchmarks

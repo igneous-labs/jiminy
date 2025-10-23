@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn comptime_lifetimes_check() {
-        let mut invalid_runtime_buffer = [];
+        let mut invalid_runtime_buffer = [0; 8];
         let (_, invalid_acc) =
             unsafe { AccountHandle::non_dup_from_ptr(invalid_runtime_buffer.as_mut_ptr(), &[]) };
         let invalid_accounts: DeserAccounts<'_, 1> = DeserAccounts(Accounts {
