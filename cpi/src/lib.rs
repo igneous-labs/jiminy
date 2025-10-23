@@ -212,7 +212,7 @@ impl<'cpi, const MAX_CPI_ACCOUNTS: usize, const HAS_PROG_ID: bool>
         derive_prog_id: impl for<'a> FnOnce(&'a Abr) -> Result<&'a [u8; 32], E>,
     ) -> Result<CpiBuilder<'cpi, MAX_CPI_ACCOUNTS, true>, E> {
         let Self {
-            abr: accounts,
+            abr,
             cpi,
             accs_len,
             data,
@@ -221,10 +221,10 @@ impl<'cpi, const MAX_CPI_ACCOUNTS: usize, const HAS_PROG_ID: bool>
             signers_seeds_len,
             prog_id: _,
         } = self;
-        let prog_id = derive_prog_id(accounts)?.as_ptr().cast();
+        let prog_id = derive_prog_id(abr)?.as_ptr().cast();
         Ok(CpiBuilder {
             cpi,
-            abr: accounts,
+            abr,
             accs_len,
             prog_id,
             data,
@@ -257,7 +257,7 @@ impl<'cpi, const MAX_CPI_ACCOUNTS: usize, const HAS_PROG_ID: bool>
         prog_id: &'a [u8; 32],
     ) -> CpiBuilder<'cpi, MAX_CPI_ACCOUNTS, true> {
         let Self {
-            abr: accounts,
+            abr,
             cpi,
             accs_len,
             data,
@@ -268,7 +268,7 @@ impl<'cpi, const MAX_CPI_ACCOUNTS: usize, const HAS_PROG_ID: bool>
         } = self;
         CpiBuilder {
             cpi,
-            abr: accounts,
+            abr,
             accs_len,
             prog_id,
             data,
