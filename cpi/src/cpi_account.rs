@@ -1,4 +1,4 @@
-use jiminy_account::Account;
+use jiminy_account::UnsafeAccount;
 
 /// An `Account` for CPI invocations.
 ///
@@ -42,18 +42,18 @@ pub(crate) struct CpiAccount {
 
 impl CpiAccount {
     #[inline(always)]
-    pub(crate) fn from_ptr(acc: *mut Account) -> Self {
+    pub(crate) fn from_unsafe(acc: UnsafeAccount<'_>) -> Self {
         unsafe {
             Self {
-                key: Account::key_ptr(acc),
-                lamports: Account::lamports_ptr(acc),
-                data_len: Account::data_len_from_ptr(acc),
-                data: Account::data_ptr(acc),
-                owner: Account::owner_ptr(acc),
+                key: acc.key_ptr(),
+                lamports: acc.lamports_ptr(),
+                data_len: acc.data_len(),
+                data: acc.data_ptr(),
+                owner: acc.owner_ptr(),
                 rent_epoch: u64::MAX,
-                is_signer: Account::is_signer_from_ptr(acc),
-                is_writable: Account::is_writable_from_ptr(acc),
-                is_executable: Account::is_executable_from_ptr(acc),
+                is_signer: acc.is_signer(),
+                is_writable: acc.is_writable(),
+                is_executable: acc.is_executable(),
             }
         }
     }

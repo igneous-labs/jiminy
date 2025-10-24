@@ -2,7 +2,7 @@ use core::marker::PhantomData;
 
 use jiminy_program_error::ProgramError;
 
-use crate::{Account, AccountHandle};
+use crate::{Account, AccountHandle, AccountMut, UnsafeAccount};
 
 /// `Abr` (short for **A**ccount**b**o**r**row) is a program-wide singleton
 /// that controls account borrowing at compile-time.
@@ -36,35 +36,49 @@ impl Abr {
 
 impl Abr {
     #[inline(always)]
-    pub const fn get<'this>(&'this self, handle: AccountHandle<'_>) -> &'this Account {
-        // safety: handle should be a valid handle previously
-        // dispensed by `get_handle` or `get_handle_unchecked`,
-        // so it should point to a valid Account.
+    pub const fn get<'this, 'account>(
+        &'this self,
+        handle: AccountHandle<'account>,
+    ) -> Account<'this, 'account> {
+        // safety: handle should be a valid handle in current prog ctx
         //
         // since we have reference access to self, nothing else
         // should have &mut access to the account
-        unsafe { &*handle.account_ptr() }
+        Account {
+            handle,
+            borrow: PhantomData,
+        }
     }
 
     /// Only 1 account can be mutably borrowed at any time due to the presence of
     /// duplication markers in the runtime.
     #[inline(always)]
-    pub const fn get_mut<'this>(&'this mut self, handle: AccountHandle<'_>) -> &'this mut Account {
-        // safety: handle should be a valid handle previously
-        // dispensed by `handle` or `handle_unchecked`,
-        // so it should point to a valid Account.
+    pub const fn get_mut<'this, 'account>(
+        &'this mut self,
+        handle: AccountHandle<'account>,
+    ) -> AccountMut<'this, 'account> {
+        // safety: handle should be a valid handle in current prog ctx
         //
         // we have exclusive (mut) access to self here,
         // nothing else has access to the account,
         // so we can return &mut
-        unsafe { &mut *handle.account_ptr() }
+        AccountMut {
+            handle,
+            borrow: PhantomData,
+        }
     }
 
     /// Returns a raw pointer to the underlying Account to avoid UB related to
     /// pointers derived from references. This is currently only used for CPI.
+    ///
+    /// # Safety
+    /// - this hsould only be used for CPI
     #[inline(always)]
-    pub const fn get_ptr(&self, handle: AccountHandle<'_>) -> *mut Account {
-        handle.account_ptr()
+    pub const unsafe fn get_unsafe<'account>(
+        &self,
+        handle: AccountHandle<'account>,
+    ) -> UnsafeAccount<'account> {
+        UnsafeAccount { handle }
     }
 
     // TODO: we can now implement simultaneous mutable borrow of two accounts
@@ -119,10 +133,10 @@ impl Abr {
         close: AccountHandle<'account>,
         refund_rent_to: AccountHandle<'account>,
     ) -> Result<(), ProgramError> {
-        let close_acc = self.get_mut(close);
+        let mut close_acc = self.get_mut(close);
         close_acc.realloc(0, false)?;
         close_acc.assign_direct([0u8; 32]); // TODO: use const pubkey for system program
-        let balance = close_acc.lamports();
+        let balance = close_acc.as_account().lamports();
         self.transfer_direct(close, refund_rent_to, balance)
     }
 }

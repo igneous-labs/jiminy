@@ -1,7 +1,7 @@
 #![cfg_attr(not(test), no_std)]
 #![allow(unexpected_cfgs)]
 
-//! All the invocation functions take `&mut Accounts` as param
+//! All the invocation functions take `&mut Abr` as param
 //! because we must have exclusive access to accounts since CPI may mutate accounts
 
 use core::{convert::Infallible, mem::MaybeUninit};
@@ -354,7 +354,7 @@ impl<'cpi, const MAX_CPI_ACCOUNTS: usize, const HAS_PROG_ID: bool>
                     BuiltInProgramError::InvalidArgument,
                 ));
             }
-            let acc = self.abr.get_ptr(handle);
+            let acc = unsafe { self.abr.get_unsafe(handle) };
             // index-safety: bounds checked against MAX_CPI_ACCOUNTS above
             // write-safety: CpiAccountMeta and CpiAccount are Copy,
             // dont care about overwriting old data
@@ -366,7 +366,7 @@ impl<'cpi, const MAX_CPI_ACCOUNTS: usize, const HAS_PROG_ID: bool>
             //
             // We've also unfortunately erased duplicate flag info when
             // creating the `Accounts` struct.
-            self.cpi.accounts[len].write(CpiAccount::from_ptr(acc));
+            self.cpi.accounts[len].write(CpiAccount::from_unsafe(acc));
             Ok(len + 1)
         })?;
         self.accs_len = len as u64;
@@ -384,13 +384,13 @@ impl<'cpi, const MAX_CPI_ACCOUNTS: usize, const HAS_PROG_ID: bool>
                     BuiltInProgramError::InvalidArgument,
                 ));
             }
-            let acc = self.abr.get_ptr(handle);
+            let acc = unsafe { self.abr.get_unsafe(handle) };
 
             // this fn's code should be the exact same as
             // [`Self::try_with_accounts`] except for this line here:
             self.cpi.metas[len].write(CpiAccountMeta::fwd(acc));
 
-            self.cpi.accounts[len].write(CpiAccount::from_ptr(acc));
+            self.cpi.accounts[len].write(CpiAccount::from_unsafe(acc));
             Ok(len + 1)
         })?;
         self.accs_len = len as u64;
@@ -442,7 +442,7 @@ impl<const MAX_CPI_ACCOUNTS: usize> CpiBuilder<'_, MAX_CPI_ACCOUNTS, true> {
                 data_len,
             };
 
-            // safety: mut borrow of `&mut Accounts` ensures
+            // safety: mut borrow of `&mut Abr` ensures
             // that no account is being borrowed elsewhere
             let res = unsafe {
                 jiminy_syscall::sol_invoke_signed_c(

@@ -6,12 +6,12 @@ pub mod program_error {
     pub use jiminy_program_error::*;
 }
 
-mod account;
+mod account_types;
 mod consts;
 mod deser;
 mod handle;
 
-pub use account::*;
+pub use account_types::*;
 pub use consts::*;
 pub use deser::*;
 pub use handle::*;

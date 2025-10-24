@@ -21,7 +21,7 @@ pub mod sysvar {
 
 use core::{iter::Map, ptr, slice};
 
-use account::Account;
+use jiminy_account::Account;
 use sysvar::SysvarId;
 
 pub const ID_STR: &str = "Sysvar1nstructions1111111111111111111111111";
@@ -49,7 +49,7 @@ impl<'a> Instructions<'a> {
     ///
     /// This is the only way to safely obtain this struct.
     #[inline]
-    pub fn try_from_account(acc: &'a Account) -> Option<Self> {
+    pub fn try_from_account(acc: Account<'a, '_>) -> Option<Self> {
         if *acc.key() == Self::ID {
             Some(Self {
                 acc_data: acc.data(),
