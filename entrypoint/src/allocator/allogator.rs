@@ -84,6 +84,8 @@ impl<const HEAP_LENGTH: usize> Allogator<HEAP_LENGTH> {
     const HEAP_END: usize = HEAP_START_ADDRESS + HEAP_LENGTH;
     const CURSOR_ADDR: usize = Self::HEAP_END - size_of::<usize>();
 
+    // is_multiple_of doesnt exist in rustc 1.84
+    #[allow(clippy::manual_is_multiple_of)]
     #[inline]
     pub const fn new() -> Self {
         const {
