@@ -205,6 +205,12 @@ platform-tools v1.48
 rustc 1.84.1
 ```
 
+Install with
+
+```sh
+$ sh -c "$(curl -sSfL https://release.anza.xyz/v2.3.7/install)"
+```
+
 ## References
 
 - [pinocchio](https://github.com/febo/pinocchio)
