@@ -43,7 +43,7 @@ impl Abr {
         //
         // since we have reference access to self, nothing else
         // should have &mut access to the account
-        unsafe { &*handle.account.get() }
+        unsafe { &*handle.account_ptr() }
     }
 
     /// Only 1 account can be mutably borrowed at any time due to the presence of
@@ -57,14 +57,14 @@ impl Abr {
         // we have exclusive (mut) access to self here,
         // nothing else has access to the account,
         // so we can return &mut
-        unsafe { &mut *handle.account.get() }
+        unsafe { &mut *handle.account_ptr() }
     }
 
     /// Returns a raw pointer to the underlying Account to avoid UB related to
     /// pointers derived from references. This is currently only used for CPI.
     #[inline(always)]
     pub const fn get_ptr(&self, handle: AccountHandle<'_>) -> *mut Account {
-        handle.account.get()
+        handle.account_ptr()
     }
 
     // TODO: we can now implement simultaneous mutable borrow of two accounts

@@ -6,7 +6,7 @@
 //   but that resulted in a redundant read of the duplicate marker vs if we just used the matched byte directly.
 // - #[inline(always)] for all fns here replaced with #[inline]. Caused instructions test program to -4 CUs but +16 binsize
 
-use core::{cell::UnsafeCell, cmp::min, mem::MaybeUninit};
+use core::{cmp::min, marker::PhantomData, mem::MaybeUninit};
 
 use crate::{
     Account, AccountHandle, Accounts, DeserAccounts, BPF_ALIGN_OF_U128,
@@ -100,19 +100,25 @@ impl<'account> AccountHandle<'account> {
     /// # Safety
     /// - ptr must be pointing to the start of a non-duplicate account
     ///   in the runtime serialized buffer
+    // pub(crate) just for testing
     #[inline]
     pub(crate) unsafe fn non_dup_from_ptr(
         ptr: *mut u8,
         _accounts: &[MaybeUninit<AccountHandle<'account>>], // here just to bound lifetimes
     ) -> (*mut u8, Self) {
-        let inner: *mut Account = ptr.cast();
-        let total_len =
-            core::mem::size_of::<Account>() + (*inner).data_len() + MAX_PERMITTED_DATA_INCREASE;
+        let data_len = {
+            let inner: *mut Account = ptr.cast();
+            (*inner).data_len()
+        };
+
+        let ptr = ptr.add(core::mem::size_of::<Account>());
 
         let res = Self {
-            account: &*inner.cast::<UnsafeCell<Account>>(),
+            account_data: ptr,
+            lt: PhantomData,
         };
-        let ptr = ptr.add(total_len);
+
+        let ptr = ptr.add(data_len).add(MAX_PERMITTED_DATA_INCREASE);
         let ptr = ptr.add(ptr.align_offset(BPF_ALIGN_OF_U128));
         let ptr = ptr.add(8);
 
