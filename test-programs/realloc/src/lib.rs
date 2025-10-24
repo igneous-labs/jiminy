@@ -4,20 +4,22 @@
 
 #![allow(unexpected_cfgs)]
 
-use jiminy_entrypoint::program_error::{BuiltInProgramError, ProgramError};
+use jiminy_entrypoint::{
+    account::{Abr, AccountHandle},
+    program_error::{BuiltInProgramError, ProgramError},
+};
 
 pub const MAX_ACCS: usize = 128;
-
-type Accounts<'a> = jiminy_entrypoint::account::Accounts<'a, MAX_ACCS>;
 
 jiminy_entrypoint::entrypoint!(process_ix, MAX_ACCS);
 
 fn process_ix(
-    accounts: &mut Accounts,
+    abr: &mut Abr,
+    accounts: &[AccountHandle<'_>],
     data: &[u8],
     _prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
-    let [acc] = *accounts.as_slice() else {
+    let [acc] = *accounts else {
         return Err(ProgramError::from_builtin(
             BuiltInProgramError::NotEnoughAccountKeys,
         ));
@@ -30,7 +32,7 @@ fn process_ix(
         return Err(ProgramError::custom(1));
     };
 
-    let acc = accounts.get_mut(acc);
+    let acc = abr.get_mut(acc);
     acc.realloc(r1, true)?;
     acc.realloc(r2, true)?;
 

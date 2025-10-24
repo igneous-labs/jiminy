@@ -2,7 +2,10 @@
 
 use std::mem::MaybeUninit;
 
-use jiminy_cpi::program_error::{BuiltInProgramError, ProgramError};
+use jiminy_cpi::{
+    account::{Abr, AccountHandle},
+    program_error::{BuiltInProgramError, ProgramError},
+};
 use jiminy_pda::{
     create_program_address_to, create_raw_program_address_to, try_find_program_address_to, PdaSeed,
     PdaSeedArr, PdaSigner,
@@ -12,17 +15,17 @@ use jiminy_system_prog_interface::{AssignIxAccs, AssignIxData};
 pub const MAX_ACCS: usize = 2;
 pub const MAX_CPI_ACCS: usize = 2;
 
-type Accounts<'account> = jiminy_entrypoint::account::Accounts<'account, MAX_ACCS>;
 type Cpi = jiminy_cpi::Cpi<MAX_CPI_ACCS>;
 
 jiminy_entrypoint::entrypoint!(process_ix, MAX_ACCS);
 
 fn process_ix(
-    accounts: &mut Accounts,
+    abr: &mut Abr,
+    accounts: &[AccountHandle<'_>],
     data: &[u8],
     prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
-    let [sys_prog, pda] = *accounts.as_slice() else {
+    let [sys_prog, pda] = *accounts else {
         return Err(ProgramError::from_builtin(
             BuiltInProgramError::NotEnoughAccountKeys,
         ));
@@ -43,7 +46,7 @@ fn process_ix(
             BuiltInProgramError::InvalidSeeds,
         ));
     };
-    if pda_computed != accounts.get(pda).key() {
+    if pda_computed != abr.get(pda).key() {
         return Err(ProgramError::custom(1));
     }
 
@@ -57,7 +60,7 @@ fn process_ix(
             BuiltInProgramError::InvalidSeeds,
         ));
     };
-    if pda_computed != accounts.get(pda).key() {
+    if pda_computed != abr.get(pda).key() {
         return Err(ProgramError::custom(2));
     }
 
@@ -71,7 +74,7 @@ fn process_ix(
             BuiltInProgramError::InvalidSeeds,
         ));
     };
-    if pda_computed_raw != accounts.get(pda).key() {
+    if pda_computed_raw != abr.get(pda).key() {
         return Err(ProgramError::custom(3));
     }
 
@@ -79,7 +82,7 @@ fn process_ix(
     let assign_accounts = AssignIxAccs::memset(sys_prog).with_assign(pda);
     // assign pda to this prog
     Cpi::new().invoke_signed_handle(
-        accounts,
+        abr,
         sys_prog,
         AssignIxData::new(prog_id).as_buf(),
         assign_accounts.into_account_handle_perms(),
@@ -87,7 +90,7 @@ fn process_ix(
         &[PdaSigner::new(seeds.split_last_chunk::<2>().unwrap().0)],
     )?;
 
-    if accounts.get(pda).owner() != prog_id {
+    if abr.get(pda).owner() != prog_id {
         return Err(ProgramError::custom(4));
     }
     Ok(())

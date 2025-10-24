@@ -4,6 +4,7 @@
 
 #![allow(unexpected_cfgs)]
 
+use jiminy_cpi::account::{Abr, AccountHandle};
 use jiminy_entrypoint::program_error::{BuiltInProgramError, ProgramError};
 use jiminy_system_prog_interface::{CreateAccountIxData, NewCreateAccountIxAccsBuilder};
 use jiminy_sysvar_rent::{sysvar::SimpleSysvar, Rent};
@@ -11,17 +12,17 @@ use jiminy_sysvar_rent::{sysvar::SimpleSysvar, Rent};
 pub const MAX_ACCS: usize = 3;
 pub const MAX_CPI_ACCS: usize = 3;
 
-type Accounts<'account> = jiminy_entrypoint::account::Accounts<'account, MAX_ACCS>;
 type Cpi = jiminy_cpi::Cpi<MAX_CPI_ACCS>;
 
 jiminy_entrypoint::entrypoint!(process_ix, MAX_ACCS);
 
 fn process_ix(
-    accounts: &mut Accounts,
+    abr: &mut Abr,
+    accounts: &[AccountHandle<'_>],
     data: &[u8],
     prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
-    let Some((accs, _rem)) = accounts.as_slice().split_first_chunk() else {
+    let Some((accs, _rem)) = accounts.split_first_chunk() else {
         return Err(ProgramError::from_builtin(
             BuiltInProgramError::NotEnoughAccountKeys,
         ));
@@ -49,9 +50,9 @@ fn process_ix(
         }
     };
 
-    let sys_prog_key = *accounts.get(sys_prog).key();
+    let sys_prog_key = *abr.get(sys_prog).key();
     Cpi::new().invoke_signed(
-        accounts,
+        abr,
         &sys_prog_key,
         CreateAccountIxData::new(lamports, space as usize, prog_id).as_buf(),
         NewCreateAccountIxAccsBuilder::start()

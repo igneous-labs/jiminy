@@ -16,12 +16,11 @@
 
 use std::ptr;
 
-use jiminy_entrypoint::program_error::{BuiltInProgramError, ProgramError};
+use jiminy_entrypoint::{
+    account::{Abr, AccountHandle},
+    program_error::{BuiltInProgramError, ProgramError},
+};
 use jiminy_sysvar_instructions::Instructions;
-
-const MAX_ACCS: usize = 1;
-
-type Accounts<'account> = jiminy_entrypoint::account::Accounts<'account, MAX_ACCS>;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 #[repr(C)]
@@ -43,20 +42,23 @@ impl IxArgs {
     }
 }
 
+const MAX_ACCS: usize = 1;
+
 jiminy_entrypoint::entrypoint!(process_ix, MAX_ACCS);
 
 fn process_ix(
-    accounts: &mut Accounts,
+    abr: &mut Abr,
+    accounts: &[AccountHandle<'_>],
     data: &[u8],
     _prog_id: &[u8; 32],
 ) -> Result<(), ProgramError> {
-    let [ixs] = *accounts.as_slice() else {
+    let [ixs] = *accounts else {
         return Err(ProgramError::from_builtin(
             BuiltInProgramError::NotEnoughAccountKeys,
         ));
     };
 
-    let Some(ixs) = Instructions::try_from_account(accounts.get(ixs)) else {
+    let Some(ixs) = Instructions::try_from_account(abr.get(ixs)) else {
         return Err(ProgramError::from_builtin(
             BuiltInProgramError::InvalidAccountData,
         ));
