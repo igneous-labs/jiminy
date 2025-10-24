@@ -56,16 +56,16 @@ fn instructions_test_basic_no_other_ixs_cus() {
     let ixs = &[ix];
     let ixs_sysvar = instructions_sysvar(ixs, curr_idx);
 
-    SVM.with(|svm| {
+    let InstructionResult {
+        raw_result,
+        compute_units_consumed,
+        ..
+    } = SVM.with(|svm| {
         let svm = svm.borrow();
-        let InstructionResult {
-            raw_result,
-            compute_units_consumed,
-            ..
-        } = svm.process_instruction_chain(ixs, &[ixs_sysvar]);
-        raw_result.unwrap();
-        save_cus_to_file("basic", compute_units_consumed);
+        svm.process_instruction_chain(ixs, &[ixs_sysvar])
     });
+    raw_result.unwrap();
+    save_cus_to_file("basic", compute_units_consumed);
 }
 
 proptest! {
@@ -75,22 +75,19 @@ proptest! {
     ) {
         silence_mollusk_prog_logs();
 
-        SVM.with(|svm| {
+        let program_ids: HashSet<_> = ixs.iter().map(|ix| ix.program_id).collect();
+
+        let InstructionResult {
+            raw_result,
+             ..
+        } = SVM.with(|svm| {
             let mut svm = svm.borrow_mut();
-            let mut program_ids = HashSet::new();
-            ixs.iter().for_each(|ix| {
-                if program_ids.insert(ix.program_id) {
-                    svm.add_program(&ix.program_id, NOOP_PROG_NAME, &bpf_loader_upgradeable::ID);
-                }
+            program_ids.iter().for_each(|pid| {
+                svm.add_program(pid, NOOP_PROG_NAME, &bpf_loader_upgradeable::ID);
             });
-
-            let InstructionResult {
-                raw_result,
-                ..
-            } = svm.process_instruction_chain(&ixs, &accs);
-
-            raw_result.unwrap();
+            svm.process_instruction_chain(&ixs, &accs)
         });
+        raw_result.unwrap();
     }
 }
 
