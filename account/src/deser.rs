@@ -9,7 +9,7 @@
 use core::{cmp::min, marker::PhantomData, mem::MaybeUninit};
 
 use crate::{
-    AccountHandle, Accounts, DeserAccounts, RawAccount, BPF_ALIGN_OF_U128,
+    Account, AccountHandle, Accounts, DeserAccounts, BPF_ALIGN_OF_U128,
     MAX_PERMITTED_DATA_INCREASE, NON_DUP_MARKER,
 };
 
@@ -107,11 +107,11 @@ impl<'account> AccountHandle<'account> {
         _accounts: &[MaybeUninit<AccountHandle<'account>>], // here just to bound lifetimes
     ) -> (*mut u8, Self) {
         let data_len = {
-            let inner: *mut RawAccount = ptr.cast();
-            (*inner).data_len as usize
+            let inner: *mut Account = ptr.cast();
+            (*inner).data_len()
         };
 
-        let ptr = ptr.add(core::mem::size_of::<RawAccount>());
+        let ptr = ptr.add(core::mem::size_of::<Account>());
 
         let res = Self {
             account_data: ptr,

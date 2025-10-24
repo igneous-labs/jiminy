@@ -1,4 +1,4 @@
-use jiminy_account::UnsafeAccount;
+use jiminy_account::Account;
 
 /// Account permissions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,15 +21,15 @@ pub(crate) struct CpiAccountMeta {
 
 impl CpiAccountMeta {
     #[inline(always)]
-    pub(crate) const fn new(
-        acc: UnsafeAccount<'_>,
+    pub(crate) fn new(
+        acc: *mut Account,
         AccountPerms {
             is_writable,
             is_signer,
         }: AccountPerms,
     ) -> Self {
         Self {
-            pubkey: unsafe { acc.key_ptr() },
+            pubkey: unsafe { Account::key_ptr(acc) },
             is_writable,
             is_signer,
         }
@@ -38,12 +38,12 @@ impl CpiAccountMeta {
     /// Use the permissions of `acc` instead of having it from
     /// an arg like [`Self::new`]
     #[inline(always)]
-    pub(crate) const fn fwd(acc: UnsafeAccount<'_>) -> Self {
+    pub(crate) fn fwd(acc: *mut Account) -> Self {
         unsafe {
             Self {
-                pubkey: acc.key_ptr(),
-                is_writable: acc.is_writable(),
-                is_signer: acc.is_signer(),
+                pubkey: Account::key_ptr(acc),
+                is_writable: (*acc).is_writable(),
+                is_signer: (*acc).is_signer(),
             }
         }
     }

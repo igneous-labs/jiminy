@@ -32,7 +32,7 @@ fn process_ix(
         return Err(ProgramError::custom(1));
     };
 
-    let mut acc = abr.get_mut(acc);
+    let acc = abr.get_mut(acc);
     acc.realloc(r1, true)?;
     acc.realloc(r2, true)?;
 

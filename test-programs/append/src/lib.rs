@@ -24,8 +24,8 @@ fn process_ix(
         return Err(NOT_ENOUGH_ACCOUNT_KEYS.into());
     };
 
-    let mut slab = abr.get_mut(slab);
-    let old_len = slab.as_account().data_len();
+    let slab = abr.get_mut(slab);
+    let old_len = slab.data_len();
     slab.grow_by(data.len(), false)?;
 
     slab.data_mut()[old_len..].copy_from_slice(data);

@@ -17,7 +17,7 @@ use core::{
 pub use abr::*;
 pub use accounts::*;
 
-use crate::RawAccount;
+use crate::Account;
 
 /// An opaque handle to an [`Account`] owned by an [`Accounts`].
 ///
@@ -43,7 +43,19 @@ use crate::RawAccount;
 #[repr(transparent)]
 pub struct AccountHandle<'account> {
     pub(crate) account_data: *mut u8,
-    pub(crate) lt: PhantomData<&'account RawAccount>,
+    pub(crate) lt: PhantomData<&'account Account>,
+}
+
+impl AccountHandle<'_> {
+    #[inline(always)]
+    pub(crate) const fn account_ptr(&self) -> *mut Account {
+        // safety: runtime layout guaranteed
+        unsafe {
+            self.account_data
+                .sub(core::mem::size_of::<Account>())
+                .cast()
+        }
+    }
 }
 
 impl Ord for AccountHandle<'_> {
