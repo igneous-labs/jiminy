@@ -13,7 +13,7 @@ const PROG_NAME: &str = "clock_test";
 const PROG_ID: Pubkey = solana_pubkey::pubkey!("DfbFRtuFbUaYfomYMhc8EPBYrC2zopTQcYK2cuNcPCwU");
 
 thread_local! {
-    static SVM: RefCell<Mollusk> = RefCell::new(Mollusk::new(&PROG_ID, PROG_NAME));
+    static SVM: RefCell<Mollusk> = RefCell::new( Mollusk::new(&PROG_ID, PROG_NAME));
 }
 
 fn instr() -> Instruction {
@@ -28,18 +28,21 @@ fn save_binsize() {
 #[test]
 fn clock_test_basic_cus() {
     let ix = instr();
-    SVM.with(|svm| {
-        let svm = svm.borrow();
-        let InstructionResult {
+    let (
+        InstructionResult {
             raw_result,
             compute_units_consumed,
             return_data,
             ..
-        } = svm.process_instruction(&ix, &[]);
-        raw_result.unwrap();
-        assert_eq!(bincode::serialize(&svm.sysvars.clock).unwrap(), return_data);
-        save_cus_to_file("basic", compute_units_consumed);
+        },
+        clock,
+    ) = SVM.with(|svm| {
+        let svm = svm.borrow();
+        (svm.process_instruction(&ix, &[]), svm.sysvars.clock.clone())
     });
+    raw_result.unwrap();
+    assert_eq!(bincode::serialize(&clock).unwrap(), return_data);
+    save_cus_to_file("basic", compute_units_consumed);
 }
 
 proptest! {
@@ -53,7 +56,15 @@ proptest! {
     ) {
         silence_mollusk_prog_logs();
 
-        SVM.with(|svm| {
+        let ix = instr();
+        let (
+            InstructionResult {
+                raw_result,
+                return_data,
+                ..
+            },
+            clock
+        ) = SVM.with(|svm| {
             let mut svm = svm.borrow_mut();
             svm.sysvars.clock = SolanaClock {
                 slot,
@@ -62,18 +73,9 @@ proptest! {
                 leader_schedule_epoch,
                 unix_timestamp,
             };
-
-            let ix = instr();
-
-            let InstructionResult {
-                raw_result,
-                return_data,
-                ..
-            } = svm.process_instruction(&ix, &[]);
-
-            raw_result.unwrap();
-
-            assert_eq!(bincode::serialize(&svm.sysvars.clock).unwrap(), return_data);
+            (svm.process_instruction(&ix, &[]), svm.sysvars.clock.clone())
         });
+        raw_result.unwrap();
+        prop_assert_eq!(bincode::serialize(&clock).unwrap(), return_data);
     }
 }

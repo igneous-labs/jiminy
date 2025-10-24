@@ -35,20 +35,17 @@ fn log_hello_world_basic_cus() {
         is_signer: false,
         is_writable: false,
     });
+    let ix = Instruction::new_with_bytes(PROG_ID, &ixd, metas.to_vec());
     let accounts = ACCS.map(|pubkey| (pubkey, Account::default()));
 
-    SVM.with(|svm| {
-        let InstructionResult {
-            compute_units_consumed,
-            raw_result,
-            ..
-        } = svm.process_instruction(
-            &Instruction::new_with_bytes(PROG_ID, &ixd, metas.to_vec()),
-            &accounts,
-        );
-        raw_result.unwrap();
-        save_cus_to_file("basic", compute_units_consumed);
-    });
+    let InstructionResult {
+        compute_units_consumed,
+        raw_result,
+        ..
+    } = SVM.with(|svm| svm.process_instruction(&ix, &accounts));
+
+    raw_result.unwrap();
+    save_cus_to_file("basic", compute_units_consumed);
 }
 
 proptest! {
@@ -64,17 +61,18 @@ proptest! {
             is_signer: false,
             is_writable: false,
         }).collect();
+        let ix = Instruction::new_with_bytes(PROG_ID, &data, metas);
         let accs: Vec<_> = accs.into_iter().map(
             |pubkey| (Pubkey::new_from_array(pubkey), Account::default())
         ).collect();
 
-        SVM.with(|svm| {
-            let InstructionResult { raw_result, .. } = svm.process_instruction(
-                &Instruction::new_with_bytes(PROG_ID, &data, metas),
-                &accs,
-            );
-
-            raw_result.unwrap();
-        });
+        let InstructionResult {
+            raw_result,
+            ..
+        } = SVM.with(|svm| svm.process_instruction(
+            &ix,
+            &accs,
+        ));
+        raw_result.unwrap()
     }
 }

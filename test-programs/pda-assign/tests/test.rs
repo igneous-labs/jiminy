@@ -48,39 +48,38 @@ fn pda_assign_basic_cus() {
 
     let (pda, _bump) = Pubkey::find_program_address(SEEDS, &PROG_ID);
 
-    SVM.with(|svm| {
-        let InstructionResult {
-            compute_units_consumed,
-            raw_result,
-            resulting_accounts,
-            ..
-        } = svm.process_instruction(
-            &Instruction::new_with_bytes(
-                PROG_ID,
-                &SEED_IX_DATA,
-                vec![
-                    AccountMeta {
-                        pubkey: solana_system_program::id(),
-                        is_signer: false,
-                        is_writable: false,
-                    },
-                    AccountMeta {
-                        pubkey: pda,
-                        is_signer: false,
-                        is_writable: true,
-                    },
-                ],
-            ),
-            &[
-                keyed_account_for_system_program(),
-                (pda, Account::default()),
-            ],
-        );
+    let ix = Instruction::new_with_bytes(
+        PROG_ID,
+        &SEED_IX_DATA,
+        vec![
+            AccountMeta {
+                pubkey: solana_system_program::id(),
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: pda,
+                is_signer: false,
+                is_writable: true,
+            },
+        ],
+    );
+    let accs = [
+        keyed_account_for_system_program(),
+        (pda, Account::default()),
+    ];
 
-        raw_result.unwrap();
-        assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
-        save_cus_to_file("basic", compute_units_consumed);
-    });
+    let InstructionResult {
+        compute_units_consumed,
+        raw_result,
+        resulting_accounts,
+        ..
+    } = SVM.with(|svm| svm.process_instruction(&ix, &accs));
+
+    raw_result.unwrap();
+    assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
+
+    save_cus_to_file("basic", compute_units_consumed);
 }
 
 #[test]
@@ -109,41 +108,38 @@ fn pda_assign_max_seeds_cus() {
         &PROG_ID,
     );
 
-    SVM.with(|svm| {
-        let InstructionResult {
-            compute_units_consumed,
-            raw_result,
-            resulting_accounts,
-            ..
-        } = svm.process_instruction(
-            &Instruction::new_with_bytes(
-                PROG_ID,
-                &SEED_IX_DATA,
-                vec![
-                    AccountMeta {
-                        pubkey: solana_system_program::id(),
-                        is_signer: false,
-                        is_writable: false,
-                    },
-                    AccountMeta {
-                        pubkey: pda,
-                        is_signer: false,
-                        is_writable: true,
-                    },
-                ],
-            ),
-            &[
-                keyed_account_for_system_program(),
-                (pda, Account::default()),
-            ],
-        );
+    let ix = Instruction::new_with_bytes(
+        PROG_ID,
+        &SEED_IX_DATA,
+        vec![
+            AccountMeta {
+                pubkey: solana_system_program::id(),
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: pda,
+                is_signer: false,
+                is_writable: true,
+            },
+        ],
+    );
+    let accs = [
+        keyed_account_for_system_program(),
+        (pda, Account::default()),
+    ];
 
-        raw_result.unwrap();
+    let InstructionResult {
+        compute_units_consumed,
+        raw_result,
+        resulting_accounts,
+        ..
+    } = SVM.with(|svm| svm.process_instruction(&ix, &accs));
 
-        assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
+    raw_result.unwrap();
+    assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
 
-        save_cus_to_file("max-seeds", compute_units_consumed);
-    });
+    save_cus_to_file("max-seeds", compute_units_consumed);
 }
 
 struct SeedsIxData(Vec<u8>);
@@ -173,39 +169,34 @@ proptest! {
             &PROG_ID,
         );
 
-        SVM.with(|svm| {
-            let InstructionResult {
-                raw_result,
-                resulting_accounts,
-                ..
-            } = svm.process_instruction(
-                &Instruction::new_with_bytes(
-                    PROG_ID,
-                    &ix_data,
-                    vec![
-                        AccountMeta {
-                            pubkey: solana_system_program::id(),
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: pda,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                    ],
-                ),
-                &[
-                    keyed_account_for_system_program(),
-                    (pda, Account::default()),
-                ],
-            );
+        let ix = Instruction::new_with_bytes(
+            PROG_ID,
+            &ix_data,
+            vec![
+                AccountMeta {
+                    pubkey: solana_system_program::id(),
+                    is_signer: false,
+                    is_writable: false,
+                },
+                AccountMeta {
+                    pubkey: pda,
+                    is_signer: false,
+                    is_writable: true,
+                },
+            ],
+        );
+        let accs = [
+            keyed_account_for_system_program(),
+            (pda, Account::default()),
+        ];
 
-            raw_result.unwrap();
+        let InstructionResult {
+            raw_result,
+            resulting_accounts,
+            ..
+        } = SVM.with(|svm| svm.process_instruction(&ix, &accs));
 
-            prop_assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
-
-            Ok(())
-        }).unwrap();
+        raw_result.unwrap();
+        prop_assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
     }
 }

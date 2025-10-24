@@ -40,45 +40,44 @@ fn transfer_basic_cus() {
         rent_epoch: u64::MAX,
     };
 
-    SVM.with(|svm| {
-        let InstructionResult {
-            compute_units_consumed,
-            raw_result,
-            resulting_accounts,
-            ..
-        } = svm.process_instruction(
-            &Instruction::new_with_bytes(
-                PROG_ID,
-                &TRF_AMT.to_le_bytes(),
-                vec![
-                    AccountMeta {
-                        pubkey: solana_system_program::id(),
-                        is_signer: false,
-                        is_writable: false,
-                    },
-                    AccountMeta {
-                        pubkey: from_pk,
-                        is_signer: true,
-                        is_writable: true,
-                    },
-                    AccountMeta {
-                        pubkey: to_pk,
-                        is_signer: false,
-                        is_writable: true,
-                    },
-                ],
-            ),
-            &[
-                keyed_account_for_system_program(),
-                (from_pk, from),
-                (to_pk, to),
-            ],
-        );
-        raw_result.unwrap();
-        assert_eq!(resulting_accounts[1].1.lamports, 0);
-        assert_eq!(resulting_accounts[2].1.lamports, TRF_AMT);
-        save_cus_to_file("basic", compute_units_consumed);
-    });
+    let ix = Instruction::new_with_bytes(
+        PROG_ID,
+        &TRF_AMT.to_le_bytes(),
+        vec![
+            AccountMeta {
+                pubkey: solana_system_program::id(),
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: from_pk,
+                is_signer: true,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: to_pk,
+                is_signer: false,
+                is_writable: true,
+            },
+        ],
+    );
+    let accounts = [
+        keyed_account_for_system_program(),
+        (from_pk, from),
+        (to_pk, to),
+    ];
+
+    let InstructionResult {
+        compute_units_consumed,
+        raw_result,
+        resulting_accounts,
+        ..
+    } = SVM.with(|svm| svm.process_instruction(&ix, &accounts));
+
+    raw_result.unwrap();
+    assert_eq!(resulting_accounts[1].1.lamports, 0);
+    assert_eq!(resulting_accounts[2].1.lamports, TRF_AMT);
+    save_cus_to_file("basic", compute_units_consumed);
 }
 
 prop_compose! {
@@ -123,46 +122,41 @@ proptest! {
             rent_epoch: u64::MAX,
         });
 
-        SVM.with(|svm| {
-            let InstructionResult {
-                raw_result,
-                resulting_accounts,
-                ..
-            } = svm.process_instruction(
-                &Instruction::new_with_bytes(
-                    PROG_ID,
-                    &amt.to_le_bytes(),
-                    vec![
-                        AccountMeta {
-                            pubkey: solana_system_program::id(),
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: from_pk,
-                            is_signer: true,
-                            is_writable: true,
-                        },
-                        AccountMeta {
-                            pubkey: to_pk,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                    ],
-                ),
-                &[
-                    keyed_account_for_system_program(),
-                    (from_pk, from),
-                    (to_pk, to),
-                ],
-            );
+        let ix = Instruction::new_with_bytes(
+            PROG_ID,
+            &amt.to_le_bytes(),
+            vec![
+                AccountMeta {
+                    pubkey: solana_system_program::id(),
+                    is_signer: false,
+                    is_writable: false,
+                },
+                AccountMeta {
+                    pubkey: from_pk,
+                    is_signer: true,
+                    is_writable: true,
+                },
+                AccountMeta {
+                    pubkey: to_pk,
+                    is_signer: false,
+                    is_writable: true,
+                },
+            ],
+        );
+        let accounts = [
+            keyed_account_for_system_program(),
+            (from_pk, from),
+            (to_pk, to),
+        ];
 
-            prop_assert_eq!(raw_result, Ok(()));
+        let InstructionResult {
+            raw_result,
+            resulting_accounts,
+            ..
+        } = SVM.with(|svm| svm.process_instruction(&ix, &accounts));
 
-            prop_assert_eq!(resulting_accounts[1].1.lamports, from_amt - amt);
-            prop_assert_eq!(resulting_accounts[2].1.lamports, to_amt + amt);
-
-            Ok(())
-        }).unwrap();
+        prop_assert_eq!(raw_result, Ok(()));
+        prop_assert_eq!(resulting_accounts[1].1.lamports, from_amt - amt);
+        prop_assert_eq!(resulting_accounts[2].1.lamports, to_amt + amt);
     }
 }

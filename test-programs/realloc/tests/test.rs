@@ -59,26 +59,21 @@ fn realloc_basic_cus() {
     let ixd = ix_data(1, 31);
     let metas = vec![a1_meta.clone()];
 
-    SVM.with(|svm| {
-        let InstructionResult {
-            compute_units_consumed,
-            raw_result,
-            resulting_accounts,
-            ..
-        } = svm.process_instruction(
-            &Instruction::new_with_bytes(PROG_ID, &ixd, metas),
-            &[(TEST_ACC_PK, a1)],
-        );
+    let ix = Instruction::new_with_bytes(PROG_ID, &ixd, metas);
+    let accs = [(TEST_ACC_PK, a1)];
 
-        raw_result.unwrap();
+    let InstructionResult {
+        compute_units_consumed,
+        raw_result,
+        resulting_accounts,
+        ..
+    } = SVM.with(|svm| svm.process_instruction(&ix, &accs));
 
-        eprintln!("{compute_units_consumed} CUs");
+    raw_result.unwrap();
+    let data = &resulting_accounts[0].1.data;
+    assert_eq!(data, &expected_account_data(69, 1, 31));
 
-        let data = &resulting_accounts[0].1.data;
-        assert_eq!(data, &expected_account_data(69, 1, 31));
-
-        save_cus_to_file("basic", compute_units_consumed);
-    });
+    save_cus_to_file("basic", compute_units_consumed);
 }
 
 fn valid_reallocs() -> impl Strategy<Value = (usize, usize, usize)> {
@@ -110,23 +105,18 @@ proptest! {
         };
         let ixd = ix_data(r1, r2);
         let metas = vec![a1_meta.clone()];
+        let ix = Instruction::new_with_bytes(PROG_ID, &ixd, metas);
+        let accs = [(TEST_ACC_PK, a1)];
 
-        SVM.with(|svm| {
-            let InstructionResult {
-                raw_result,
-                resulting_accounts,
-                ..
-            } = svm.process_instruction(
-                &Instruction::new_with_bytes(PROG_ID, &ixd, metas),
-                &[(TEST_ACC_PK, a1)],
-            );
+        let InstructionResult {
+            raw_result,
+            resulting_accounts,
+            ..
+        } = SVM.with(|svm| svm.process_instruction(&ix, &accs));
 
-            raw_result.unwrap();
-
-            let data = &resulting_accounts[0].1.data;
-            prop_assert_eq!(data, &expected_account_data(original, r1, r2));
-            Ok(())
-        }).unwrap();
+        raw_result.unwrap();
+        let data = &resulting_accounts[0].1.data;
+        prop_assert_eq!(data, &expected_account_data(original, r1, r2));
     }
 }
 
@@ -148,15 +138,14 @@ proptest! {
         };
         let ixd = ix_data(r1, 0);
         let metas = vec![a1_meta.clone()];
+        let ix = Instruction::new_with_bytes(PROG_ID, &ixd, metas);
+        let accs = [(TEST_ACC_PK, a1)];
 
-        SVM.with(|svm| {
-            let InstructionResult { raw_result, .. } = svm.process_instruction(
-                &Instruction::new_with_bytes(PROG_ID, &ixd, metas),
-                &[(TEST_ACC_PK, a1)],
-            );
+        let InstructionResult {
+            raw_result,
+            ..
+        } = SVM.with(|svm| svm.process_instruction(&ix, &accs));
 
-            prop_assert_eq!(raw_result.unwrap_err(), InstructionError::InvalidRealloc);
-            Ok(())
-        }).unwrap();
+        prop_assert_eq!(raw_result.unwrap_err(), InstructionError::InvalidRealloc);
     }
 }

@@ -87,23 +87,20 @@ fn rent_test_basic_cus() {
 
     let (ix, accounts) = setup(PAYER, ACC, DATA_LEN, None);
 
-    SVM.with(|svm| {
-        let InstructionResult {
-            compute_units_consumed,
-            raw_result,
-            resulting_accounts,
-            ..
-        } = svm.process_and_validate_instruction(&ix, &accounts, &[Check::all_rent_exempt()]);
+    let InstructionResult {
+        compute_units_consumed,
+        raw_result,
+        resulting_accounts,
+        ..
+    } = SVM.with(|svm| {
+        svm.process_and_validate_instruction(&ix, &accounts, &[Check::all_rent_exempt()])
+    });
 
-        raw_result.unwrap();
+    raw_result.unwrap();
+    let acc = &resulting_accounts[ACC_IDX].1;
+    assert_eq!(PROG_ID, acc.owner);
 
-        eprintln!("{compute_units_consumed} CUs");
-
-        let acc = &resulting_accounts[ACC_IDX].1;
-        assert_eq!(PROG_ID, acc.owner);
-
-        save_cus_to_file("basic", compute_units_consumed);
-    })
+    save_cus_to_file("basic", compute_units_consumed);
 }
 
 const PK_EXCL: [[u8; 32]; 2] = [[0; 32], PROG_ID.to_bytes()];
@@ -133,17 +130,18 @@ proptest! {
 
         let (ix, accounts) = setup(payer, acc, size, None);
 
-        SVM.with(|svm| {
-            let InstructionResult {
-                raw_result,
-                resulting_accounts,
-                ..
-            } = svm.process_and_validate_instruction(&ix, &accounts, &[Check::all_rent_exempt()]);
+        let InstructionResult {
+            raw_result,
+            resulting_accounts,
+            ..
+        } = SVM.with(|svm| svm.process_and_validate_instruction(
+            &ix,
+            &accounts,
+            &[Check::all_rent_exempt()]
+        ));
 
-            raw_result.unwrap();
-
-            let acc = &resulting_accounts[ACC_IDX].1;
-            assert_eq!(PROG_ID, acc.owner);
-        });
+        raw_result.unwrap();
+        let acc = &resulting_accounts[ACC_IDX].1;
+        prop_assert_eq!(PROG_ID, acc.owner);
     }
 }
