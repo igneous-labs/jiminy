@@ -20,7 +20,7 @@ use jiminy_entrypoint::{
 use jiminy_system_prog_interface::{TransferIxAccs, TransferIxData};
 
 // Determines the maximum number of accounts that can be deserialized and
-// saved to [`Accounts`]. Any proceeding accounts are discarded.
+// saved to the AccountHandle slice. Any proceeding accounts are discarded.
 const MAX_ACCS: usize = 3;
 
 // Determines the maximum number of accounts that can be used in a CPI,

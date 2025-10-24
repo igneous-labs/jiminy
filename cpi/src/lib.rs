@@ -171,7 +171,7 @@ impl<const MAX_CPI_ACCOUNTS: usize> Cpi<MAX_CPI_ACCOUNTS> {
     }
 }
 
-/// Lower level API for customizing derivation of CPI data from [`Accounts`]
+/// Lower level API for customizing derivation of CPI data
 #[derive(Debug)]
 pub struct CpiBuilder<'cpi, const MAX_CPI_ACCOUNTS: usize, const HAS_PROG_ID: bool> {
     abr: &'cpi mut Abr,
