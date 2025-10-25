@@ -234,7 +234,7 @@ seqerr!(
     (ACCOUNT_DATA_TOO_SMALL, AccountDataTooSmall),
     (INSUFFICIENT_FUNDS, InsufficientFunds),
     (INCORRECT_PROGRAM_ID, IncorrectProgramId),
-    (MISSING_REQUIRED_SIGNATURES, MissingRequiredSignature),
+    (MISSING_REQUIRED_SIGNATURE, MissingRequiredSignature),
     (ACCOUNT_ALREADY_INITIALIZED, AccountAlreadyInitialized),
     (UNINITIALIZED_ACCOUNT, UninitializedAccount),
     (NOT_ENOUGH_ACCOUNT_KEYS, NotEnoughAccountKeys),
