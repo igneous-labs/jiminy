@@ -473,6 +473,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "close"
+version = "0.1.0"
+dependencies = [
+ "jiminy-entrypoint",
+ "jiminy-sysvar-rent",
+ "jiminy-test-utils",
+ "mollusk-svm",
+ "proptest",
+ "solana-account",
+ "solana-instruction",
+ "solana-pubkey",
+]
+
+[[package]]
 name = "combine"
 version = "3.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

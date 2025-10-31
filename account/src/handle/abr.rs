@@ -104,11 +104,11 @@ impl Abr {
         self.get_mut(to).inc_lamports_unchecked(lamports);
     }
 
-    /// Close an account by
+    /// Close an account owned by the currently executing program by
     ///
-    /// 1. realloc to 0 size
-    /// 2. assign to system program
-    /// 3. [`Self::transfer_direct`] all lamports away to `refund_rent_to`
+    /// 1. [`Self::transfer_direct`] all lamports away to `refund_rent_to`
+    /// 2. realloc to 0 size
+    /// 3. assign to system program
     ///
     /// Account will still exist with same balance but with
     /// zero sized data and owner = system program
@@ -119,10 +119,11 @@ impl Abr {
         close: AccountHandle<'account>,
         refund_rent_to: AccountHandle<'account>,
     ) -> Result<(), ProgramError> {
+        let balance = self.get(close).lamports();
+        self.transfer_direct(close, refund_rent_to, balance)?;
         let close_acc = self.get_mut(close);
         close_acc.realloc(0, false)?;
         close_acc.assign_direct([0u8; 32]); // TODO: use const pubkey for system program
-        let balance = close_acc.lamports();
-        self.transfer_direct(close, refund_rent_to, balance)
+        Ok(())
     }
 }
