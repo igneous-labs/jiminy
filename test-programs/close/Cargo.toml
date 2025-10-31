@@ -1,0 +1,24 @@
+[package]
+name = "close"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+
+[features]
+default = []
+test-sbf = []
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+jiminy-entrypoint = { workspace = true }
+
+[dev-dependencies]
+jiminy-sysvar-rent = { workspace = true }
+jiminy-test-utils = { workspace = true }
+mollusk-svm = { workspace = true }
+proptest = { workspace = true }
+solana-account = { workspace = true }
+solana-instruction = { workspace = true }
+solana-pubkey = { workspace = true }
