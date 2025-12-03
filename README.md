@@ -200,15 +200,15 @@ This section contains dev info for people who wish to work on the library.
 
 ```sh
 $ cargo-build-sbf --version
-solana-cargo-build-sbf 2.3.7
-platform-tools v1.48
-rustc 1.84.1
+solana-cargo-build-sbf 3.1.1
+platform-tools v1.52
+rustc 1.89.0
 ```
 
 Install with
 
 ```sh
-$ sh -c "$(curl -sSfL https://release.anza.xyz/v2.3.7/install)"
+$ sh -c "$(curl -sSfL https://release.anza.xyz/v3.1.1/install)"
 ```
 
 ## References

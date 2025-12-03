@@ -34,18 +34,18 @@ bincode = "^1"
 five8 = "^0.2"
 proptest = "^1"
 
-## solana dev deps
-# // grouping these tgt to deal with solana's dependency hell more conveniently
-mollusk-svm = { version = "^0.5", default-features = false }
-solana-account = { version = "^2", default-features = false }
-solana-clock = { version = "^2", default-features = false }
-solana-instruction = { version = "^2", default-features = false }
-solana-instructions-sysvar = { version = "^2", default-features = false }
-solana-logger = { version = "^2", default-features = false }
-solana-pubkey = { version = "^2", default-features = false }
-solana-rent = { version = "^2", default-features = false }
-solana-sdk-ids= { version = "^2", default-features = false }
-solana-system-program = { version = "^2", default-features = false }
+# solana dev deps
+# grouping these tgt to deal with solana's dependency hell more conveniently
+mollusk-svm = { version = "^0.7", default-features = false }
+solana-account = { version = "^3", default-features = false }
+solana-clock = { version = "^3", default-features = false }
+solana-instruction = { version = "^3", default-features = false }
+solana-instructions-sysvar = { version = "^3", default-features = false }
+solana-logger = { version = "^3", default-features = false }
+solana-pubkey = { version = "^3", default-features = false }
+solana-rent = { version = "^3", default-features = false }
+solana-sdk-ids= { version = "^3", default-features = false }
+solana-system-program = { version = "^3", default-features = false }
 
 # workspace members
 jiminy-account = { path = "./account" }
