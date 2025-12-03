@@ -13,7 +13,7 @@ const PROG_NAME: &str = "clock_test";
 const PROG_ID: Pubkey = solana_pubkey::pubkey!("DfbFRtuFbUaYfomYMhc8EPBYrC2zopTQcYK2cuNcPCwU");
 
 thread_local! {
-    static SVM: RefCell<Mollusk> = RefCell::new( Mollusk::new(&PROG_ID, PROG_NAME));
+    static SVM: RefCell<Mollusk> = RefCell::new(Mollusk::new(&PROG_ID, PROG_NAME));
 }
 
 fn instr() -> Instruction {
