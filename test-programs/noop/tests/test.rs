@@ -1,6 +1,6 @@
 #![cfg(feature = "test-sbf")]
 
-use jiminy_test_utils::{save_binsize_to_file, save_cus_to_file};
+use jiminy_test_utils::{bench_binsize, expect_test::expect, save_cus_to_file};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use solana_instruction::Instruction;
 use solana_pubkey::Pubkey;
@@ -9,8 +9,8 @@ const PROG_NAME: &str = "noop";
 const PROG_ID: Pubkey = solana_pubkey::pubkey!("7sw5pYQWyFKuVcztPVcMYomsHMVYoRp24rcaKxvjwnex");
 
 #[test]
-fn save_binsize() {
-    save_binsize_to_file(PROG_NAME);
+fn binsize_bench() {
+    bench_binsize(PROG_NAME, expect!["1336"]);
 }
 
 #[test]

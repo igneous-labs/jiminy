@@ -3,10 +3,14 @@
 
 use std::{fs::File, io::Write, os::unix::fs::MetadataExt, path::PathBuf};
 
+use expect_test::Expect;
 use proptest::{
     prelude::{Just, Strategy},
     strategy::Union,
 };
+
+// Re-exports
+pub use expect_test;
 
 pub fn silence_mollusk_prog_logs() {
     solana_logger::setup_with_default(
@@ -57,7 +61,7 @@ pub fn save_cus_to_file(name: &str, compute_units_consumed: u64) {
         .unwrap();
 }
 
-pub fn save_binsize_to_file(prog_name: &str) {
+pub fn bench_binsize(prog_name: &str, expect: Expect) {
     let size = File::open(
         PathBuf::from(std::env::var("SBF_OUT_DIR").unwrap())
             .join(prog_name)
@@ -67,12 +71,5 @@ pub fn save_binsize_to_file(prog_name: &str) {
     .metadata()
     .unwrap()
     .size();
-    File::create(
-        PathBuf::from(BENCH_RES_DIR)
-            .join("binsize")
-            .with_extension("txt"),
-    )
-    .unwrap()
-    .write_all(size.to_string().as_bytes())
-    .unwrap();
+    expect.assert_eq(&size.to_string());
 }

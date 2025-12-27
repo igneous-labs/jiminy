@@ -1,6 +1,8 @@
 #![cfg(feature = "test-sbf")]
 
-use jiminy_test_utils::{save_binsize_to_file, save_cus_to_file, silence_mollusk_prog_logs};
+use jiminy_test_utils::{
+    bench_binsize, expect_test::expect, save_cus_to_file, silence_mollusk_prog_logs,
+};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -20,8 +22,8 @@ thread_local! {
 }
 
 #[test]
-fn save_binsize() {
-    save_binsize_to_file(PROG_NAME);
+fn binsize_bench() {
+    bench_binsize(PROG_NAME, expect!["22760"]);
 }
 
 // dont use msg!() in your programs, boys and girls
