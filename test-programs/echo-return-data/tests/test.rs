@@ -4,9 +4,7 @@ use std::{cmp::min, collections::HashMap};
 
 use echo_return_data::MAX_ACCS;
 use jiminy_return_data::MAX_RETURN_DATA;
-use jiminy_test_utils::{
-    bench_binsize, expect_test::expect, save_cus_to_file, silence_mollusk_prog_logs,
-};
+use jiminy_test_utils::{bench_binsize, expect_test::expect, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -99,7 +97,7 @@ fn entrypoint_basic_cus() {
         PROG_ID.to_bytes()
     );
 
-    save_cus_to_file("basic", compute_units_consumed);
+    expect!["458"].assert_eq(&compute_units_consumed.to_string());
 }
 
 #[test]

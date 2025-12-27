@@ -1,6 +1,6 @@
 #![cfg(feature = "test-sbf")]
 
-use jiminy_test_utils::{bench_binsize, expect_test::expect, save_cus_to_file};
+use jiminy_test_utils::{bench_binsize, expect_test::expect};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use solana_instruction::Instruction;
 use solana_pubkey::Pubkey;
@@ -22,5 +22,6 @@ fn noop_empty_ix_cus() {
         ..
     } = svm.process_instruction(&Instruction::new_with_bytes(PROG_ID, &[], Vec::new()), &[]);
     raw_result.unwrap();
-    save_cus_to_file("basic", compute_units_consumed);
+
+    expect!["2"].assert_eq(&compute_units_consumed.to_string());
 }

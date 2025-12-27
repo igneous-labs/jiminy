@@ -1,8 +1,6 @@
 #![cfg(feature = "test-sbf")]
 
-use jiminy_test_utils::{
-    bench_binsize, expect_test::expect, save_cus_to_file, silence_mollusk_prog_logs,
-};
+use jiminy_test_utils::{bench_binsize, expect_test::expect, silence_mollusk_prog_logs};
 use mollusk_svm::{program::keyed_account_for_system_program, result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -79,7 +77,8 @@ fn transfer_basic_cus() {
     raw_result.unwrap();
     assert_eq!(resulting_accounts[1].1.lamports, 0);
     assert_eq!(resulting_accounts[2].1.lamports, TRF_AMT);
-    save_cus_to_file("basic", compute_units_consumed);
+
+    expect!["1307"].assert_eq(&compute_units_consumed.to_string());
 }
 
 prop_compose! {

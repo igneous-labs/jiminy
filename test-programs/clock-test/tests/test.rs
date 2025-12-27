@@ -2,9 +2,7 @@
 
 use std::cell::RefCell;
 
-use jiminy_test_utils::{
-    bench_binsize, expect_test::expect, save_cus_to_file, silence_mollusk_prog_logs,
-};
+use jiminy_test_utils::{bench_binsize, expect_test::expect, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_clock::Clock as SolanaClock;
@@ -44,7 +42,8 @@ fn clock_test_basic_cus() {
     });
     raw_result.unwrap();
     assert_eq!(bincode::serialize(&clock).unwrap(), return_data);
-    save_cus_to_file("basic", compute_units_consumed);
+
+    expect!["224"].assert_eq(&compute_units_consumed.to_string());
 }
 
 proptest! {
