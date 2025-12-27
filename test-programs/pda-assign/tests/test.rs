@@ -1,7 +1,7 @@
 #![cfg(feature = "test-sbf")]
 
 use jiminy_pda::{MAX_SEEDS, MAX_SEED_LEN};
-use jiminy_test_utils::{save_binsize_to_file, save_cus_to_file, silence_mollusk_prog_logs};
+use jiminy_test_utils::{bench_binsize, expect_test::expect, silence_mollusk_prog_logs};
 use mollusk_svm::{program::keyed_account_for_system_program, result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -16,8 +16,8 @@ thread_local! {
 }
 
 #[test]
-fn save_binsize() {
-    save_binsize_to_file(PROG_NAME);
+fn binsize_bench() {
+    bench_binsize(PROG_NAME, expect!["8200"]);
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn pda_assign_basic_cus() {
     raw_result.unwrap();
     assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
 
-    save_cus_to_file("basic", compute_units_consumed);
+    expect!["4716"].assert_eq(&compute_units_consumed.to_string());
 }
 
 #[test]
@@ -139,7 +139,7 @@ fn pda_assign_max_seeds_cus() {
     raw_result.unwrap();
     assert_eq!(resulting_accounts[1].1.owner, PROG_ID);
 
-    save_cus_to_file("max-seeds", compute_units_consumed);
+    expect!["8001"].assert_eq(&compute_units_consumed.to_string());
 }
 
 struct SeedsIxData(Vec<u8>);

@@ -26,7 +26,7 @@ fn process_ix(
 
     let slab = abr.get_mut(slab);
     let old_len = slab.data_len();
-    slab.grow_by(data.len(), false)?;
+    slab.grow_by(data.len())?;
 
     slab.data_mut()[old_len..].copy_from_slice(data);
 

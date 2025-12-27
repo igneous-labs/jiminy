@@ -6,3 +6,4 @@ edition.workspace = true
 [target.'cfg(not(target_os = "solana"))'.dependencies]
 proptest = { workspace = true }
 solana-logger = { workspace = true }
+expect-test = { workspace = true }

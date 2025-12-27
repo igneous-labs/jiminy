@@ -10,6 +10,7 @@ use core::{
 pub mod program_error {
     pub use jiminy_program_error::*;
 }
+use jiminy_syscall::sol_memset_;
 use program_error::*;
 
 mod deser;
@@ -238,7 +239,7 @@ impl Account {
     }
 
     #[inline(always)]
-    pub fn realloc(&mut self, new_len: usize, zero_init: bool) -> Result<(), ProgramError> {
+    pub fn realloc(&mut self, new_len: usize) -> Result<(), ProgramError> {
         // account data lengths should always be <= 10MiB < i32::MAX,
         let curr_len = self.data_len();
         let [Ok(new_len_i32), Ok(curr_len_i32)] = [new_len, curr_len].map(i32::try_from) else {
@@ -260,13 +261,11 @@ impl Account {
         self.realloc_budget_used = new_realloc_budget_used;
         self.data_len = new_len as u64;
 
-        if zero_init {
-            if let Ok(growth) = usize::try_from(budget_delta) {
-                // TODO: see if sol_memset syscall is necessary here,
-                // or if ptr::write_bytes is optimized into that
-                unsafe {
-                    core::ptr::write_bytes(Self::data_ptr(self).add(curr_len), 0, growth);
-                }
+        if let Ok(growth) = u64::try_from(budget_delta) {
+            // always explicitly call sol_memset syscall bec runtime may require this in the future.
+            // See: https://github.com/anza-xyz/solana-sdk/pull/176
+            unsafe {
+                sol_memset_(Self::data_ptr(self).add(curr_len), 0, growth);
             }
         }
 
@@ -276,7 +275,7 @@ impl Account {
     #[inline(always)]
     pub fn shrink_by(&mut self, dec_bytes: usize) -> Result<(), ProgramError> {
         match self.data_len().checked_sub(dec_bytes) {
-            Some(new_len) => self.realloc(new_len, false),
+            Some(new_len) => self.realloc(new_len),
             None => Err(ProgramError::from_builtin(
                 BuiltInProgramError::ArithmeticOverflow,
             )),
@@ -284,9 +283,9 @@ impl Account {
     }
 
     #[inline(always)]
-    pub fn grow_by(&mut self, inc_bytes: usize, zero_init: bool) -> Result<(), ProgramError> {
+    pub fn grow_by(&mut self, inc_bytes: usize) -> Result<(), ProgramError> {
         match self.data_len().checked_add(inc_bytes) {
-            Some(new_len) => self.realloc(new_len, zero_init),
+            Some(new_len) => self.realloc(new_len),
             None => Err(ProgramError::from_builtin(
                 BuiltInProgramError::ArithmeticOverflow,
             )),

@@ -3,7 +3,7 @@
 use std::cmp::min;
 
 use jiminy_entrypoint::account::{MAX_PERMITTED_DATA_INCREASE, MAX_PERMITTED_DATA_LENGTH};
-use jiminy_test_utils::{save_binsize_to_file, save_cus_to_file, silence_mollusk_prog_logs};
+use jiminy_test_utils::{bench_binsize, expect_test::expect, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -44,8 +44,8 @@ fn expected_account_data(original: usize, r1: usize, r2: usize) -> Vec<u8> {
 }
 
 #[test]
-fn save_binsize() {
-    save_binsize_to_file(PROG_NAME);
+fn binsize_bench() {
+    bench_binsize(PROG_NAME, expect!["2208"]);
 }
 
 #[test]
@@ -73,7 +73,7 @@ fn realloc_basic_cus() {
     let data = &resulting_accounts[0].1.data;
     assert_eq!(data, &expected_account_data(69, 1, 31));
 
-    save_cus_to_file("basic", compute_units_consumed);
+    expect!["82"].assert_eq(&compute_units_consumed.to_string());
 }
 
 fn valid_reallocs() -> impl Strategy<Value = (usize, usize, usize)> {

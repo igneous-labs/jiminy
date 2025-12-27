@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 jiminy-program-error = { workspace = true }
+jiminy-syscall = { workspace = true }

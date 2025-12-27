@@ -1,7 +1,7 @@
 #![cfg(feature = "test-sbf")]
 
 use jiminy_sysvar_rent::Rent;
-use jiminy_test_utils::{save_binsize_to_file, save_cus_to_file, silence_mollusk_prog_logs};
+use jiminy_test_utils::{bench_binsize, expect_test::expect, silence_mollusk_prog_logs};
 use mollusk_svm::{
     result::{Check, InstructionResult},
     Mollusk,
@@ -50,8 +50,8 @@ fn close_acc(data: Vec<u8>, lamports: Option<u64>) -> Account {
 }
 
 #[test]
-fn save_binsize() {
-    save_binsize_to_file(PROG_NAME);
+fn binsize_bench() {
+    bench_binsize(PROG_NAME, expect!["2000"]);
 }
 
 fn test(accs: &[(Pubkey, Account); 2]) -> InstructionResult {
@@ -111,7 +111,7 @@ fn close_test_basic_cus() {
         ),
     ]);
 
-    save_cus_to_file("basic", compute_units_consumed);
+    expect!["69"].assert_eq(&compute_units_consumed.to_string());
 }
 
 fn lamports_strat() -> impl Strategy<Value = [u64; 2]> {

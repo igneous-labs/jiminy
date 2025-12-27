@@ -1,6 +1,6 @@
 #![cfg(feature = "test-sbf")]
 
-use jiminy_test_utils::{save_binsize_to_file, save_cus_to_file, silence_mollusk_prog_logs};
+use jiminy_test_utils::{bench_binsize, expect_test::expect, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::{collection::vec, prelude::*};
 use solana_account::Account;
@@ -37,8 +37,8 @@ fn slab_acc(data: Vec<u8>) -> Account {
 }
 
 #[test]
-fn save_binsize() {
-    save_binsize_to_file(PROG_NAME);
+fn binsize_bench() {
+    bench_binsize(PROG_NAME, expect!["7640"]);
 }
 
 #[test]
@@ -58,7 +58,8 @@ fn append_test_0to8_cus() {
     raw_result.unwrap();
     let d: &[u8; 8] = resulting_accounts[0].1.data.as_slice().try_into().unwrap();
     assert_eq!(u64::from_le_bytes(*d), VAL);
-    save_cus_to_file("0to8", compute_units_consumed);
+
+    expect!["84"].assert_eq(&compute_units_consumed.to_string());
 }
 
 proptest! {

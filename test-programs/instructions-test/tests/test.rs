@@ -6,7 +6,7 @@ use std::{cell::RefCell, collections::HashSet};
 
 use instructions_test::IxArgs;
 use jiminy_sysvar_instructions::sysvar::OWNER_ID;
-use jiminy_test_utils::{save_binsize_to_file, save_cus_to_file, silence_mollusk_prog_logs};
+use jiminy_test_utils::{bench_binsize, expect_test::expect, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::{collection::vec, prelude::*};
 use solana_account::Account;
@@ -36,8 +36,8 @@ fn instr(args: &IxArgs) -> Instruction {
 }
 
 #[test]
-fn save_binsize() {
-    save_binsize_to_file(PROG_NAME);
+fn binsize_bench() {
+    bench_binsize(PROG_NAME, expect!["8296"]);
 }
 
 #[test]
@@ -65,7 +65,8 @@ fn instructions_test_basic_no_other_ixs_cus() {
         svm.process_instruction_chain(ixs, &[ixs_sysvar])
     });
     raw_result.unwrap();
-    save_cus_to_file("basic", compute_units_consumed);
+
+    expect!["116"].assert_eq(&compute_units_consumed.to_string());
 }
 
 proptest! {

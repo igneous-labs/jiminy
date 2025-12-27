@@ -655,6 +655,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dissimilar"
+version = "1.0.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8975ffdaa0ef3661bfe02dbdcc06c9f829dfafe6a3c474de366a8d5e44276921"
+
+[[package]]
 name = "doctest"
 version = "0.1.0"
 dependencies = [
@@ -784,6 +790,16 @@ checksum = "33d852cb9b869c2a9b3df2f71a3074817f01e1844f839a144f5fcef059a4eb5d"
 dependencies = [
  "libc",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "expect-test"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63af43ff4431e848fb47472a920f14fa71c24de13255a5692e93d4e90302acb0"
+dependencies = [
+ "dissimilar",
+ "once_cell",
 ]
 
 [[package]]
@@ -1039,6 +1055,7 @@ name = "jiminy-account"
 version = "0.1.0"
 dependencies = [
  "jiminy-program-error",
+ "jiminy-syscall",
 ]
 
 [[package]]
@@ -1144,6 +1161,7 @@ dependencies = [
 name = "jiminy-test-utils"
 version = "0.1.0"
 dependencies = [
+ "expect-test",
  "proptest",
  "solana-logger",
 ]

@@ -1,6 +1,6 @@
 #![cfg(feature = "test-sbf")]
 
-use jiminy_test_utils::{save_binsize_to_file, save_cus_to_file, silence_mollusk_prog_logs};
+use jiminy_test_utils::{bench_binsize, expect_test::expect, silence_mollusk_prog_logs};
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use proptest::prelude::*;
 use solana_account::Account;
@@ -20,8 +20,8 @@ thread_local! {
 }
 
 #[test]
-fn save_binsize() {
-    save_binsize_to_file(PROG_NAME);
+fn binsize_bench() {
+    bench_binsize(PROG_NAME, expect!["22760"]);
 }
 
 // dont use msg!() in your programs, boys and girls
@@ -45,7 +45,8 @@ fn log_hello_world_basic_cus() {
     } = SVM.with(|svm| svm.process_instruction(&ix, &accounts));
 
     raw_result.unwrap();
-    save_cus_to_file("basic", compute_units_consumed);
+
+    expect!["4622"].assert_eq(&compute_units_consumed.to_string());
 }
 
 proptest! {

@@ -1,7 +1,7 @@
 #![cfg(feature = "test-sbf")]
 
 use jiminy_test_utils::{
-    save_binsize_to_file, save_cus_to_file, silence_mollusk_prog_logs, two_different_pubkeys,
+    bench_binsize, expect_test::expect, silence_mollusk_prog_logs, two_different_pubkeys,
 };
 use mollusk_svm::{
     program::keyed_account_for_system_program,
@@ -75,8 +75,8 @@ fn setup(
 }
 
 #[test]
-fn save_binsize() {
-    save_binsize_to_file(PROG_NAME);
+fn binsize_bench() {
+    bench_binsize(PROG_NAME, expect!["6880"]);
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn rent_test_basic_cus() {
     let acc = &resulting_accounts[ACC_IDX].1;
     assert_eq!(PROG_ID, acc.owner);
 
-    save_cus_to_file("basic", compute_units_consumed);
+    expect!["1443"].assert_eq(&compute_units_consumed.to_string());
 }
 
 const PK_EXCL: [[u8; 32]; 2] = [[0; 32], PROG_ID.to_bytes()];

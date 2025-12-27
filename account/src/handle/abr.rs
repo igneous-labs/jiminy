@@ -122,7 +122,7 @@ impl Abr {
         let balance = self.get(close).lamports();
         self.transfer_direct(close, refund_rent_to, balance)?;
         let close_acc = self.get_mut(close);
-        close_acc.realloc(0, false)?;
+        close_acc.realloc(0)?;
         close_acc.assign_direct([0u8; 32]); // TODO: use const pubkey for system program
         Ok(())
     }
