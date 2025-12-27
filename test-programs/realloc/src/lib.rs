@@ -33,8 +33,8 @@ fn process_ix(
     };
 
     let acc = abr.get_mut(acc);
-    acc.realloc(r1, true)?;
-    acc.realloc(r2, true)?;
+    acc.realloc(r1)?;
+    acc.realloc(r2)?;
 
     Ok(())
 }

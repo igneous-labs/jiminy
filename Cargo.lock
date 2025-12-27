@@ -1039,6 +1039,7 @@ name = "jiminy-account"
 version = "0.1.0"
 dependencies = [
  "jiminy-program-error",
+ "jiminy-syscall",
 ]
 
 [[package]]
